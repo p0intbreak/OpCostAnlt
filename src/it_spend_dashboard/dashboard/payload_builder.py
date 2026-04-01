@@ -25,6 +25,26 @@ STATUS_LABELS = {
     "other": "Прочее",
 }
 
+AMOUNT_FIELDS = ["summa", "summa_regl", "summa_upr", "summa_vzaimorascheti"]
+DATE_FIELDS = [
+    "period",
+    "quarter_period",
+    "bit_zayavka_na_rashodovanie_sredstv_data",
+    "bit_platezhnaya_poziciya_data",
+]
+TEXT_FIELDS = [
+    "bit_stati_oborotov_naimenovanie",
+    "naznachenie_platezha",
+    "kontragenti_naimenovanie",
+    "dogovori_kontragentov_naimenovanie",
+]
+ENTITY_FIELDS = [
+    "organizacii_naimenovanie",
+    "podrazdeleniya_naimenovanie",
+    "proekti_naimenovanie",
+    "kontragenti_naimenovanie",
+]
+
 
 def build_dashboard_payload(
     payments_fact: pd.DataFrame,
@@ -35,7 +55,8 @@ def build_dashboard_payload(
     fact = build_payments_fact(payments_fact) if "payment_id" not in payments_fact.columns else payments_fact.copy()
     aggregations = build_aggregations(fact)
     resolved_insights = insights if insights is not None else build_management_narratives(fact, limit=5)
-    detail_rows = _build_detail_rows(fact)
+    detail_row_details = _build_detail_row_details()
+    detail_rows = _build_detail_rows(fact, detail_row_details=detail_row_details)
 
     payload = {
         "metadata": _build_metadata(fact),
@@ -50,6 +71,7 @@ def build_dashboard_payload(
         "insights": resolved_insights,
         "detail_rows": detail_rows,
         "detail_row_index": _build_detail_row_index(detail_rows),
+        "detail_row_details": detail_row_details,
     }
     validate_dashboard_payload(payload)
     return payload
@@ -203,12 +225,18 @@ def _build_entity_aggregate(aggregation: pd.DataFrame, column: str) -> list[dict
     return rows
 
 
-def _build_detail_rows(fact: pd.DataFrame) -> list[dict[str, Any]]:
+def _build_detail_rows(
+    fact: pd.DataFrame,
+    *,
+    detail_row_details: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Build normalized detail rows for frontend-only drill-downs."""
     rows: list[dict[str, Any]] = []
-    for _, row in fact.iterrows():
+    for row_number, (_, row) in enumerate(fact.iterrows()):
+        detail_row_id = f"row_{row_number}"
         rows.append(
             {
+                "detail_row_id": detail_row_id,
                 "payment_id": str(row["payment_id"]),
                 "period_date": _format_date(row["period_date"]),
                 "year": _nullable_int(row["year"]),
@@ -238,6 +266,7 @@ def _build_detail_rows(fact: pd.DataFrame) -> list[dict[str, Any]]:
                 "matched_vendor_pattern": str(row.get("matched_vendor_pattern", "")),
                 "matched_article_pattern": str(row.get("matched_article_pattern", "")),
                 "classification_reason_human": str(row.get("classification_reason_human", "")),
+                "has_transformations": bool(detail_row_details.get(detail_row_id, {}).get("transformations")),
             }
         )
     return rows
@@ -247,7 +276,7 @@ def _build_detail_row_index(detail_rows: list[dict[str, Any]]) -> dict[str, list
     """Build pre-indexed slices for frontend drill-down by click target."""
     index: dict[str, list[str]] = {}
     for row in detail_rows:
-        payment_id = str(row["payment_id"])
+        detail_row_id = str(row["detail_row_id"])
         keys = {
             f"year:{row['year']}",
             f"month:{row['month']}",
@@ -259,8 +288,42 @@ def _build_detail_row_index(detail_rows: list[dict[str, Any]]) -> dict[str, list
             f"l3:{row['l3_category_id']}",
         }
         for key in keys:
-            index.setdefault(key, []).append(payment_id)
+            index.setdefault(key, []).append(detail_row_id)
     return index
+
+
+def _build_detail_row_details() -> dict[str, dict[str, Any]]:
+    """Build a row-level audit trail from interim artifacts."""
+    base_dir = Path(__file__).resolve().parents[3]
+    interim_dir = base_dir / "data" / "interim"
+    ingested_path = interim_dir / "payments_ingested.parquet"
+    classified_path = interim_dir / "payments_classified.parquet"
+    cleaned_path = interim_dir / "payments_clean.parquet"
+
+    if not ingested_path.exists():
+        return {}
+
+    raw = pd.read_parquet(ingested_path)
+    if classified_path.exists():
+        post = pd.read_parquet(classified_path)
+    elif cleaned_path.exists():
+        post = pd.read_parquet(cleaned_path)
+    else:
+        return {}
+
+    details: dict[str, dict[str, Any]] = {}
+    record_count = min(len(raw), len(post))
+    for row_number in range(record_count):
+        detail_row_id = f"row_{row_number}"
+        raw_row = raw.iloc[row_number]
+        post_row = post.iloc[row_number]
+        details[detail_row_id] = {
+            "detail_row_id": detail_row_id,
+            "raw_attributes": _serialize_raw_attributes(raw_row),
+            "pipeline_attributes": _serialize_pipeline_attributes(post_row),
+            "transformations": _build_transformation_log(raw_row, post_row),
+        }
+    return details
 
 
 def _aggregate_rows(fact: pd.DataFrame, dimensions: list[str]) -> pd.DataFrame:
@@ -311,3 +374,118 @@ def _build_expense_subject(row: pd.Series) -> str:
     if contract_name and article_name and contract_name.lower() != article_name.lower():
         return f"{contract_name} / {article_name}"
     return contract_name or article_name
+
+
+def _serialize_raw_attributes(row: pd.Series) -> dict[str, str]:
+    """Serialize non-empty original row attributes for the audit modal."""
+    attributes: dict[str, str] = {}
+    for column, value in row.items():
+        serialized = _serialize_value(value)
+        if serialized:
+            attributes[str(column)] = serialized
+    return attributes
+
+
+def _serialize_pipeline_attributes(row: pd.Series) -> dict[str, str]:
+    """Serialize important post-pipeline attributes for the audit modal."""
+    fields = [
+        "business_status",
+        "year",
+        "month",
+        "quarter",
+        "year_month",
+        "l1_category",
+        "l2_category",
+        "l3_category",
+        "classification_confidence",
+        "classification_confidence_score",
+        "matched_rule_id",
+        "matched_keywords",
+        "matched_vendor_pattern",
+        "matched_article_pattern",
+        "classification_reason_human",
+    ]
+    output: dict[str, str] = {}
+    for field in fields:
+        if field in row.index:
+            serialized = _serialize_value(row[field])
+            if serialized:
+                output[field] = serialized
+    return output
+
+
+def _build_transformation_log(raw_row: pd.Series, post_row: pd.Series) -> list[dict[str, str]]:
+    """Build a row-level list of cleaning and normalization changes."""
+    changes: list[dict[str, str]] = []
+
+    for field in AMOUNT_FIELDS:
+        _append_change(changes, raw_row, post_row, field, "amount_numeric_parse", "Парсинг числовой суммы")
+    for field in DATE_FIELDS:
+        _append_change(changes, raw_row, post_row, field, "date_normalization", "Нормализация даты")
+    for field in TEXT_FIELDS:
+        _append_change(changes, raw_row, post_row, field, "text_cleanup", "Нормализация текстового поля")
+    for field in ENTITY_FIELDS:
+        _append_change(changes, raw_row, post_row, field, "entity_normalization", "Нормализация справочника сущностей")
+
+    raw_status = _serialize_value(raw_row.get("registrator_status_name"))
+    mapped_status = _serialize_value(post_row.get("business_status"))
+    if mapped_status and raw_status != mapped_status:
+        changes.append(
+            {
+                "rule_id": "status_mapping",
+                "rule_label": "Маппинг статуса в бизнес-статус",
+                "field": "business_status",
+                "before": raw_status,
+                "after": mapped_status,
+            }
+        )
+
+    for field in ("year", "month", "quarter", "year_month"):
+        derived_value = _serialize_value(post_row.get(field))
+        if derived_value:
+            changes.append(
+                {
+                    "rule_id": "date_derived_fields",
+                    "rule_label": "Расчет производных полей отчетного периода",
+                    "field": field,
+                    "before": "",
+                    "after": derived_value,
+                }
+            )
+
+    return changes
+
+
+def _append_change(
+    changes: list[dict[str, str]],
+    raw_row: pd.Series,
+    post_row: pd.Series,
+    field: str,
+    rule_id: str,
+    rule_label: str,
+) -> None:
+    """Append a before/after change record when a field value was transformed."""
+    if field not in raw_row.index or field not in post_row.index:
+        return
+    before = _serialize_value(raw_row[field])
+    after = _serialize_value(post_row[field])
+    if before == after:
+        return
+    changes.append(
+        {
+            "rule_id": rule_id,
+            "rule_label": rule_label,
+            "field": field,
+            "before": before,
+            "after": after,
+        }
+    )
+
+
+def _serialize_value(value: object) -> str:
+    """Convert scalar values into UI-friendly strings."""
+    if value is None or pd.isna(value):
+        return ""
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    return str(value)

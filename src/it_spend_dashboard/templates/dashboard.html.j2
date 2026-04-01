@@ -4,9 +4,11 @@
   <main class="page-shell">
     <section class="hero">
       <div class="hero-card">
+        <div class="hero-topline">IT Spend Storyboard</div>
         <h1>{{ title }}</h1>
         <p class="subtitle">
-          Интерактивный дашборд расходов IT-департамента с локальным drill-down без backend.
+          Интерактивный дашборд расходов IT-департамента с упором на управленческий сторилайн,
+          кликабельные срезы и детальную расшифровку без backend.
         </p>
         <div class="hero-meta">
           <span class="meta-pill">Валюта: {{ metadata.currency }}</span>
@@ -17,94 +19,177 @@
       </div>
     </section>
 
-    <section class="section-card top-insights">
-      <div class="section-header">
+    <section class="group-panel">
+      <div class="group-header">
         <div>
-          <h2 class="section-title">Панель инсайтов</h2>
-          <div class="section-caption">Top-5 управленческих инсайтов для быстрого перехода в срез</div>
+          <div class="group-kicker">1. Executive Story</div>
+          <h2 class="group-title">С чего начинается чтение дашборда</h2>
         </div>
       </div>
-      <div id="insights-grid" class="insights-grid"></div>
+      <div class="story-grid">
+        <article class="story-card story-card-primary" id="story-main-card">
+          <div class="story-eyebrow">Главный вывод</div>
+          <h3 id="story-main-title" class="story-title"></h3>
+          <div id="story-main-metric" class="story-metric"></div>
+          <p id="story-main-text" class="story-text"></p>
+        </article>
+        <article class="story-card">
+          <div class="story-eyebrow">Что растет</div>
+          <h3 id="story-growth-title" class="story-title"></h3>
+          <div id="story-growth-metric" class="story-metric"></div>
+          <p id="story-growth-text" class="story-text"></p>
+        </article>
+        <article class="story-card">
+          <div class="story-eyebrow">Что требует внимания</div>
+          <h3 id="story-risk-title" class="story-title"></h3>
+          <div id="story-risk-metric" class="story-metric"></div>
+          <p id="story-risk-text" class="story-text"></p>
+        </article>
+      </div>
+      <div class="insights-inline">
+        <div class="section-header compact">
+          <div>
+            <h3 class="section-title">Панель инсайтов</h3>
+            <div class="section-caption">Top-5 управленческих сигналов для перехода в нужный срез</div>
+          </div>
+        </div>
+        <div id="insights-grid" class="insights-grid"></div>
+      </div>
     </section>
 
-    <section id="kpi-grid" class="kpi-grid"></section>
-
-    <section class="content-grid">
-      <article class="section-card span-6">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Годовое сравнение 2025 vs 2026</h2>
-            <div class="section-caption">Сумма расходов по годам</div>
-          </div>
+    <section class="group-panel">
+      <div class="group-header">
+        <div>
+          <div class="group-kicker">2. Executive Snapshot</div>
+          <h2 class="group-title">Масштаб, годовое сравнение и зависшие суммы</h2>
         </div>
-        <div id="year-comparison-chart" class="chart"></div>
-      </article>
-
-      <article class="section-card span-6">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Статусы и зависшие суммы</h2>
-            <div class="section-caption">Структура по статусным группам</div>
+      </div>
+      <section id="kpi-grid" class="kpi-grid"></section>
+      <div class="content-grid">
+        <article class="section-card span-7">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Годовое сравнение 2025 vs 2026</h3>
+              <div class="section-caption">Как изменился общий объем расходов по годам</div>
+            </div>
           </div>
-        </div>
-        <div id="status-breakdown-chart" class="chart"></div>
-      </article>
+          <div id="year-comparison-chart" class="chart"></div>
+        </article>
 
-      <article class="section-card span-7">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Динамика по месяцам</h2>
-            <div class="section-caption">Тренд расходов по месяцам</div>
+        <article class="section-card span-5">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Статусы и зависшие суммы</h3>
+              <div class="section-caption">Где деньги оплачены, а где остаются в цикле согласования</div>
+            </div>
           </div>
-        </div>
-        <div id="monthly-trends-chart" class="chart"></div>
-      </article>
+          <div id="status-breakdown-chart" class="chart"></div>
+        </article>
+      </div>
+    </section>
 
-      <article class="section-card span-5">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Топ контрагентов</h2>
-            <div class="section-caption">Top-10 по сумме расходов</div>
+    <section class="group-panel">
+      <div class="group-header">
+        <div>
+          <div class="group-kicker">3. Spend Structure</div>
+          <h2 class="group-title">Куда уходят деньги и кто концентрирует бюджет</h2>
+        </div>
+      </div>
+      <div class="content-grid">
+        <article class="section-card span-7">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Структура расходов L1/L2/L3</h3>
+              <div class="section-caption">Treemap показывает, где сосредоточена основная масса бюджета</div>
+            </div>
           </div>
-        </div>
-        <div id="vendors-chart" class="chart"></div>
-      </article>
+          <div id="category-breadcrumb" class="breadcrumb-bar"></div>
+          <div id="categories-tree-chart" class="chart chart-tall"></div>
+        </article>
 
-      <article class="section-card span-8">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Структура расходов L1/L2/L3</h2>
-            <div class="section-caption">Treemap по таксономии расходов</div>
+        <article class="section-card span-5">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Крупнейшие категории</h3>
+              <div class="section-caption">Быстрый рейтинг категорий L1 по сумме расходов</div>
+            </div>
           </div>
-        </div>
-        <div id="category-breadcrumb" class="breadcrumb-bar"></div>
-        <div id="categories-tree-chart" class="chart chart-tall"></div>
-      </article>
+          <div id="category-ranking-chart" class="chart"></div>
+        </article>
 
-      <article class="section-card span-4">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Организации / подразделения</h2>
-            <div class="section-caption">Организации с drill-down и обзор подразделений</div>
+        <article class="section-card span-6">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Топ контрагентов</h3>
+              <div class="section-caption">Какие поставщики формируют наибольшую долю затрат</div>
+            </div>
           </div>
-        </div>
-        <div id="organizations-chart" class="chart chart-tall"></div>
-        <div id="departments-chart" class="chart"></div>
-      </article>
+          <div id="vendors-chart" class="chart"></div>
+        </article>
 
-      <article class="table-card span-12">
+        <article class="section-card span-6">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Организации / подразделения</h3>
+              <div class="section-caption">Какие оргсущности и команды тянут бюджет на себя</div>
+            </div>
+          </div>
+          <div id="organizations-chart" class="chart"></div>
+          <div id="departments-chart" class="chart chart-compact"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="group-panel">
+      <div class="group-header">
+        <div>
+          <div class="group-kicker">4. Change Dynamics</div>
+          <h2 class="group-title">Что меняется во времени и какие статьи растут</h2>
+        </div>
+      </div>
+      <div class="content-grid">
+        <article class="section-card span-8">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Динамика по месяцам</h3>
+              <div class="section-caption">Тренд позволяет увидеть всплески и сезонность расходов</div>
+            </div>
+          </div>
+          <div id="monthly-trends-chart" class="chart chart-tall"></div>
+        </article>
+
+        <article class="section-card span-4">
+          <div class="section-header">
+            <div>
+              <h3 class="section-title">Рост категорий 2026 vs 2025</h3>
+              <div class="section-caption">Какие категории L1 ускоряются быстрее остальных</div>
+            </div>
+          </div>
+          <div id="category-yoy-chart" class="chart chart-tall"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="group-panel">
+      <div class="group-header">
+        <div>
+          <div class="group-kicker">5. Drill-down</div>
+          <h2 class="group-title">Переход к деталям</h2>
+        </div>
+      </div>
+      <article class="table-card">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Детальная таблица</h2>
+            <h3 class="section-title">Детальная таблица</h3>
             <div class="section-caption">Client-side filtering, sorting и export без backend</div>
           </div>
         </div>
 
         <section class="filter-card inline-filter-card">
-          <div class="section-header">
+          <div class="section-header compact">
             <div>
-              <h2 class="section-title">Фильтры</h2>
-              <div class="section-caption">Управляют детальной таблицей и drill-down</div>
+              <h3 class="section-title">Фильтры</h3>
+              <div class="section-caption">Связаны с графиками и карточками выше</div>
             </div>
           </div>
           <div class="filter-grid">
@@ -232,5 +317,34 @@
         <div id="detail-pagination-bottom" class="pagination-bar pagination-bottom"></div>
       </article>
     </section>
+
+    <div id="detail-modal" class="modal-backdrop hidden" aria-hidden="true">
+      <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+        <div class="modal-header">
+          <div>
+            <div class="group-kicker">Row Audit Trail</div>
+            <h3 id="detail-modal-title" class="section-title">Детали строки</h3>
+          </div>
+          <button id="detail-modal-close" class="secondary" type="button">Закрыть</button>
+        </div>
+        <div class="modal-summary">
+          <div id="detail-modal-summary" class="section-caption"></div>
+        </div>
+        <div class="modal-grid">
+          <section class="modal-section">
+            <h4 class="modal-section-title">Примененные правила</h4>
+            <div id="detail-modal-transformations"></div>
+          </section>
+          <section class="modal-section">
+            <h4 class="modal-section-title">Итоговые поля пайплайна</h4>
+            <div id="detail-modal-pipeline" class="attr-grid"></div>
+          </section>
+        </div>
+        <section class="modal-section">
+          <h4 class="modal-section-title">Исходная строка из CSV</h4>
+          <div id="detail-modal-raw" class="attr-grid attr-grid-raw"></div>
+        </section>
+      </div>
+    </div>
   </main>
 {% endblock %}

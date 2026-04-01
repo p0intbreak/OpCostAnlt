@@ -131,11 +131,35 @@ class DashboardInsight(BaseModel):
     supporting_filters: dict[str, Any]
 
 
+class DashboardTransformation(BaseModel):
+    """Single cleaning or normalization change for a row-level audit trail."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str
+    rule_label: str
+    field: str
+    before: str
+    after: str
+
+
+class DashboardDetailModal(BaseModel):
+    """Detailed modal payload with raw attributes and transformation log."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    detail_row_id: str
+    raw_attributes: dict[str, str]
+    pipeline_attributes: dict[str, str]
+    transformations: list[DashboardTransformation]
+
+
 class DashboardDetailRow(BaseModel):
     """Detail row payload used for frontend-only drill-downs."""
 
     model_config = ConfigDict(extra="forbid")
 
+    detail_row_id: str
     payment_id: str
     period_date: str
     year: int | None = None
@@ -165,6 +189,7 @@ class DashboardDetailRow(BaseModel):
     matched_vendor_pattern: str
     matched_article_pattern: str
     classification_reason_human: str
+    has_transformations: bool
 
 
 class DashboardPayload(BaseModel):
@@ -184,3 +209,4 @@ class DashboardPayload(BaseModel):
     insights: list[DashboardInsight]
     detail_rows: list[DashboardDetailRow]
     detail_row_index: dict[str, list[str]]
+    detail_row_details: dict[str, DashboardDetailModal]

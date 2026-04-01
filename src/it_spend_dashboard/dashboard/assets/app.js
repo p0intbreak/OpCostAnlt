@@ -1,6 +1,7 @@
 (function () {
   const payload = window.dashboardPayload || {};
   const detailRows = payload.detail_rows || [];
+  const detailRowDetails = payload.detail_row_details || {};
   const state = {
     filters: {
       year: "",
@@ -44,19 +45,72 @@
   document.addEventListener("DOMContentLoaded", init);
 
   function init() {
+    renderStoryline();
+    renderInsights();
     renderKpis();
     renderYearComparison();
-    renderMonthlyTrends();
-    renderCategoriesTree();
     renderStatusBreakdown();
+    renderCategoriesTree();
+    renderCategoryRanking();
+    renderMonthlyTrends();
+    renderCategoryYoy();
     renderEntityBar("vendors-chart", payload.vendors || [], "vendor");
     renderEntityBar("organizations-chart", payload.organizations || [], "organization");
     renderDepartments();
-    renderInsights();
     bindControls();
+    bindModalControls();
     renderActiveFilters();
     renderBreadcrumb();
     renderDetailTable();
+  }
+
+  function renderStoryline() {
+    const totalAmount = detailRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const byCategory = groupAmounts(detailRows, "l1_category_label");
+    const byStatus = groupAmounts(detailRows, "status_group");
+    const yoyByCategory = buildCategoryYoyRows();
+    const topCategory = byCategory[0];
+    const growthLeader = yoyByCategory.filter((row) => row.delta_amount > 0).sort((a, b) => b.delta_amount - a.delta_amount)[0];
+    const stuckAmount = (byStatus.find((row) => row.key === "approved_not_paid")?.total_amount || 0)
+      + (byStatus.find((row) => row.key === "in_approval")?.total_amount || 0);
+
+    setText("story-main-title", topCategory ? topCategory.label : "Крупнейшая статья не найдена");
+    setText("story-main-metric", topCategory ? formatAmountThousands(topCategory.total_amount) : "Нет данных");
+    setText(
+      "story-main-text",
+      topCategory
+        ? `${topCategory.label} формирует ${formatPercent(topCategory.total_amount / Math.max(totalAmount, 1))} общего бюджета. Это главный слой расходов, с которого стоит начинать анализ.`
+        : "Недостаточно данных для определения крупнейшей категории."
+    );
+
+    setText("story-growth-title", growthLeader ? growthLeader.label : "Нет выраженного роста");
+    setText("story-growth-metric", growthLeader ? `${formatSignedThousands(growthLeader.delta_amount)}` : "Нет данных");
+    setText(
+      "story-growth-text",
+      growthLeader
+        ? `В 2026 году категория выросла относительно 2025 года на ${formatPercent(growthLeader.delta_share)}. Это главный кандидат для проверки причин ускорения.`
+        : "Годовое сравнение пока не показывает явного лидера роста."
+    );
+
+    setText("story-risk-title", "Неоплаченные и зависшие суммы");
+    setText("story-risk-metric", formatAmountThousands(stuckAmount));
+    setText(
+      "story-risk-text",
+      `Суммы в статусах «Согласовано, не оплачено» и «На согласовании» образуют операционный риск и требуют управленческого контроля.`
+    );
+  }
+
+  function renderInsights() {
+    const root = byId("insights-grid");
+    if (!root) return;
+    root.innerHTML = "";
+    (payload.insights || []).forEach((insight) => {
+      const card = document.createElement("article");
+      card.className = `insight-card ${insight.severity}`;
+      card.innerHTML = `<h3 class="insight-title">${esc(insight.title)}</h3><div class="insight-metric">${esc(insight.metric)}</div><div class="insight-text">${esc(insight.explanation)}</div>`;
+      card.addEventListener("click", () => applyInsightFilters(insight.supporting_filters || {}));
+      root.appendChild(card);
+    });
   }
 
   function renderKpis() {
@@ -81,53 +135,16 @@
         x: rows.map((row) => String(row.year)),
         y: rows.map((row) => toThousands(row.total_amount)),
         type: "bar",
+        marker: { color: ["#a8c0ff", "#2e62ff"] },
         customdata: rows.map((row) => [String(row.year)]),
+        text: rows.map((row) => formatAmountThousands(row.total_amount)),
+        textposition: "outside",
         hovertemplate: "Год %{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
       }],
-      baseLayout("Сумма расходов по годам, тыс. руб."),
+      baseLayout(""),
       { responsive: true }
     );
     bindPlotClick("year-comparison-chart", (point) => setFilter("year", point.customdata[0]));
-  }
-
-  function renderMonthlyTrends() {
-    const rows = payload.monthly_trends || [];
-    const years = [...new Set(rows.map((row) => row.year))];
-    const traces = years.map((year) => {
-      const scoped = rows.filter((row) => row.year === year);
-      return {
-        x: scoped.map((row) => row.year_month),
-        y: scoped.map((row) => toThousands(row.total_amount)),
-        mode: "lines+markers",
-        name: String(year),
-        customdata: scoped.map((row) => [String(row.year), String(row.month)]),
-        hovertemplate: "%{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
-      };
-    });
-    Plotly.newPlot("monthly-trends-chart", traces, baseLayout("Динамика по месяцам, тыс. руб."), { responsive: true });
-    bindPlotClick("monthly-trends-chart", (point) => {
-      setFilter("year", point.customdata[0], false);
-      setFilter("month", point.customdata[1], true);
-    });
-  }
-
-  function renderCategoriesTree() {
-    const flattened = flattenTree(payload.categories_tree || []);
-    Plotly.newPlot(
-      "categories-tree-chart",
-      [{
-        type: "treemap",
-        labels: flattened.labels,
-        ids: flattened.ids,
-        parents: flattened.parents,
-        values: flattened.values.map((value) => toThousands(value)),
-        branchvalues: "total",
-        hovertemplate: "%{label}<br>Сумма %{value:,.2f} тыс. руб.<extra></extra>",
-      }],
-      { margin: { l: 0, r: 0, t: 8, b: 0 }, paper_bgcolor: "transparent" },
-      { responsive: true }
-    );
-    bindPlotClick("categories-tree-chart", (point) => applyCategoryPath(point.id || ""));
   }
 
   function renderStatusBreakdown() {
@@ -143,10 +160,103 @@
     Plotly.newPlot(
       "status-breakdown-chart",
       traces,
-      { ...baseLayout("Статусная структура, тыс. руб."), barmode: "stack", margin: { l: 36, r: 16, t: 36, b: 36 } },
+      { ...baseLayout(""), barmode: "stack", margin: { l: 28, r: 12, t: 20, b: 24 } },
       { responsive: true }
     );
     bindPlotClick("status-breakdown-chart", (point) => setFilter("status_group", point.customdata[0]));
+  }
+
+  function renderCategoriesTree() {
+    const flattened = flattenTree(payload.categories_tree || []);
+    Plotly.newPlot(
+      "categories-tree-chart",
+      [{
+        type: "treemap",
+        labels: flattened.labels,
+        ids: flattened.ids,
+        parents: flattened.parents,
+        values: flattened.values.map((value) => toThousands(value)),
+        branchvalues: "total",
+        textinfo: "label+value",
+        hovertemplate: "%{label}<br>Сумма %{value:,.2f} тыс. руб.<extra></extra>",
+      }],
+      { margin: { l: 0, r: 0, t: 4, b: 0 }, paper_bgcolor: "transparent" },
+      { responsive: true }
+    );
+    bindPlotClick("categories-tree-chart", (point) => applyCategoryPath(point.id || ""));
+  }
+
+  function renderCategoryRanking() {
+    const rows = flattenL1Categories(payload.categories_tree || []).slice(0, 8);
+    Plotly.newPlot(
+      "category-ranking-chart",
+      [{
+        x: rows.map((row) => toThousands(row.total_amount)),
+        y: rows.map((row) => row.label),
+        type: "bar",
+        orientation: "h",
+        marker: { color: "#2e62ff" },
+        customdata: rows.map((row) => [row.id]),
+        text: rows.map((row) => formatAmountThousands(row.total_amount)),
+        textposition: "outside",
+        hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
+      }],
+      { ...baseLayout(""), margin: { l: 160, r: 16, t: 8, b: 20 }, xaxis: amountAxisTemplate },
+      { responsive: true }
+    );
+    bindPlotClick("category-ranking-chart", (point) => setFilter("l1_category_id", point.customdata[0]));
+  }
+
+  function renderMonthlyTrends() {
+    const rows = payload.monthly_trends || [];
+    const years = [...new Set(rows.map((row) => row.year))];
+    const traces = years.map((year, index) => {
+      const scoped = rows.filter((row) => row.year === year);
+      return {
+        x: scoped.map((row) => row.year_month),
+        y: scoped.map((row) => toThousands(row.total_amount)),
+        mode: "lines+markers",
+        line: { width: 3, color: index === years.length - 1 ? "#2e62ff" : "#8bb8ff" },
+        marker: { size: 6 },
+        fill: index === years.length - 1 ? "tozeroy" : undefined,
+        fillcolor: index === years.length - 1 ? "rgba(46, 98, 255, 0.12)" : undefined,
+        name: String(year),
+        customdata: scoped.map((row) => [String(row.year), String(row.month)]),
+        hovertemplate: "%{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
+      };
+    });
+    Plotly.newPlot(
+      "monthly-trends-chart",
+      traces,
+      { ...baseLayout(""), margin: { l: 34, r: 16, t: 16, b: 30 } },
+      { responsive: true }
+    );
+    bindPlotClick("monthly-trends-chart", (point) => {
+      setFilter("year", point.customdata[0], false);
+      setFilter("month", point.customdata[1], true);
+    });
+  }
+
+  function renderCategoryYoy() {
+    const rows = buildCategoryYoyRows().slice(0, 8);
+    Plotly.newPlot(
+      "category-yoy-chart",
+      [{
+        x: rows.map((row) => row.label),
+        y: rows.map((row) => toThousands(row.delta_amount)),
+        type: "bar",
+        marker: {
+          color: rows.map((row) => row.delta_amount >= 0 ? "#16a34a" : "#f59e0b"),
+        },
+        customdata: rows.map((row) => [row.id]),
+        text: rows.map((row) => formatSignedThousands(row.delta_amount)),
+        textposition: "outside",
+        hovertemplate: "%{x}<br>Δ %{y:,.2f} тыс. руб.<extra></extra>",
+      }],
+      { ...baseLayout(""), margin: { l: 34, r: 12, t: 20, b: 90 }, xaxis: { tickangle: -24 } },
+      { responsive: true }
+    );
+    bindPlotClick("category-yoy-chart", (point) => setFilter("l1_category_id", point.customdata[0]));
   }
 
   function renderEntityBar(containerId, rows, prefix) {
@@ -158,12 +268,13 @@
         y: topRows.map((row) => row.label),
         type: "bar",
         orientation: "h",
+        marker: { color: prefix === "vendor" ? "#2e62ff" : "#18b5d8" },
         customdata: topRows.map((row) => [row.id]),
         hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
       }],
       {
         ...baseLayout(""),
-        margin: { l: 160, r: 16, t: 8, b: 32 },
+        margin: { l: 170, r: 16, t: 8, b: 24 },
         xaxis: amountAxisTemplate,
       },
       { responsive: true }
@@ -183,28 +294,16 @@
         y: rows.map((row) => row.label),
         type: "bar",
         orientation: "h",
+        marker: { color: "#7aa8ff" },
         hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
       }],
       {
-        ...baseLayout("Подразделения, тыс. руб."),
-        margin: { l: 160, r: 16, t: 36, b: 32 },
+        ...baseLayout(""),
+        margin: { l: 170, r: 16, t: 8, b: 24 },
         xaxis: amountAxisTemplate,
       },
       { responsive: true }
     );
-  }
-
-  function renderInsights() {
-    const root = byId("insights-grid");
-    if (!root) return;
-    root.innerHTML = "";
-    (payload.insights || []).forEach((insight) => {
-      const card = document.createElement("article");
-      card.className = `insight-card ${insight.severity}`;
-      card.innerHTML = `<h3 class="insight-title">${esc(insight.title)}</h3><div class="insight-metric">${esc(insight.metric)}</div><div class="insight-text">${esc(insight.explanation)}</div>`;
-      card.addEventListener("click", () => applyInsightFilters(insight.supporting_filters || {}));
-      root.appendChild(card);
-    });
   }
 
   function bindControls() {
@@ -373,7 +472,7 @@
       body.innerHTML = '<tr><td colspan="9" class="empty-state">Нет строк под выбранные фильтры</td></tr>';
     } else {
       body.innerHTML = pagedRows.map((row) => `
-        <tr>
+        <tr data-detail-row-id="${escAttr(row.detail_row_id)}">
           <td>${esc(row.period_date)}</td>
           <td>${esc(row.vendor_label)}</td>
           <td>${esc(row.organization_label)}</td>
@@ -385,6 +484,9 @@
           <td class="detail-amount-cell">${formatAmountThousands(row.amount)}</td>
         </tr>
       `).join("");
+      body.querySelectorAll("[data-detail-row-id]").forEach((node) => {
+        node.addEventListener("click", () => openDetailModal(node.dataset.detailRowId));
+      });
     }
     renderPagination(rows.length, totalPages);
   }
@@ -511,6 +613,34 @@
     URL.revokeObjectURL(url);
   }
 
+  function buildCategoryYoyRows() {
+    const years = [...new Set(detailRows.map((row) => Number(row.year)).filter((value) => !Number.isNaN(value)))].sort();
+    const leftYear = years[0];
+    const rightYear = years[years.length - 1];
+    const grouped = new Map();
+    detailRows.forEach((row) => {
+      const key = row.l1_category_label || "Прочее";
+      if (!grouped.has(key)) grouped.set(key, { label: key, id: row.l1_category_id, amounts: {} });
+      const item = grouped.get(key);
+      item.amounts[row.year] = (item.amounts[row.year] || 0) + Number(row.amount || 0);
+    });
+    return [...grouped.values()].map((item) => {
+      const prev = Number(item.amounts[leftYear] || 0);
+      const next = Number(item.amounts[rightYear] || 0);
+      const delta = next - prev;
+      return {
+        label: item.label,
+        id: item.id,
+        left_year: leftYear,
+        right_year: rightYear,
+        previous_amount: prev,
+        current_amount: next,
+        delta_amount: delta,
+        delta_share: prev ? delta / prev : 1,
+      };
+    }).sort((a, b) => Math.abs(b.delta_amount) - Math.abs(a.delta_amount));
+  }
+
   function flattenTree(nodes) {
     const out = { labels: [], ids: [], parents: [], values: [] };
     nodes.forEach((node) => walkTree(node, "", out, []));
@@ -525,6 +655,23 @@
     out.parents.push(parentId);
     out.values.push(node.total_amount);
     (node.children || []).forEach((child) => walkTree(child, fullPath.join("|"), out, fullPath));
+  }
+
+  function flattenL1Categories(nodes) {
+    return (nodes || [])
+      .map((node) => ({ id: node.id, label: node.label, total_amount: Number(node.total_amount || 0) }))
+      .sort((a, b) => b.total_amount - a.total_amount);
+  }
+
+  function groupAmounts(rows, field) {
+    const grouped = {};
+    rows.forEach((row) => {
+      const key = String(row[field] || "");
+      if (!key) return;
+      if (!grouped[key]) grouped[key] = { key, label: key, total_amount: 0 };
+      grouped[key].total_amount += Number(row.amount || 0);
+    });
+    return Object.values(grouped).sort((a, b) => b.total_amount - a.total_amount);
   }
 
   function aggregateBy(rows, field) {
@@ -551,8 +698,8 @@
 
   function baseLayout(title) {
     return {
-      margin: { l: 36, r: 16, t: 36, b: 36 },
-      title: title ? { text: title, font: { size: 16 } } : undefined,
+      margin: { l: 32, r: 14, t: 20, b: 24 },
+      title: title ? { text: title, font: { size: 15 } } : undefined,
       paper_bgcolor: "transparent",
       plot_bgcolor: "transparent",
       xaxis: amountAxisTemplate,
@@ -563,6 +710,79 @@
 
   function statusLabel(value) {
     return statusLabels[value] || value;
+  }
+
+  function bindModalControls() {
+    byId("detail-modal-close")?.addEventListener("click", closeDetailModal);
+    byId("detail-modal")?.addEventListener("click", (event) => {
+      if (event.target?.id === "detail-modal") closeDetailModal();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDetailModal();
+    });
+  }
+
+  function openDetailModal(detailRowId) {
+    const row = detailRows.find((item) => item.detail_row_id === detailRowId);
+    const details = detailRowDetails[detailRowId];
+    if (!row || !details) return;
+
+    setText("detail-modal-title", `Строка ${row.detail_row_id}`);
+    setText(
+      "detail-modal-summary",
+      `${row.period_date} · ${row.vendor_label} · ${formatAmountThousands(row.amount)} · статус: ${statusLabel(row.status_group)}`
+    );
+    renderKeyValueGrid("detail-modal-pipeline", details.pipeline_attributes || {});
+    renderRawAttributes("detail-modal-raw", details.raw_attributes || {});
+    renderTransformations("detail-modal-transformations", details.transformations || []);
+    byId("detail-modal")?.classList.remove("hidden");
+    byId("detail-modal")?.setAttribute("aria-hidden", "false");
+  }
+
+  function closeDetailModal() {
+    byId("detail-modal")?.classList.add("hidden");
+    byId("detail-modal")?.setAttribute("aria-hidden", "true");
+  }
+
+  function renderTransformations(containerId, transformations) {
+    const node = byId(containerId);
+    if (!node) return;
+    if (!transformations.length) {
+      node.innerHTML = '<div class="section-caption">Изменений по правилам очистки и нормализации не зафиксировано.</div>';
+      return;
+    }
+    node.innerHTML = `<div class="transformation-list">${transformations.map((item) => `
+      <div class="transformation-item">
+        <div class="transformation-rule">
+          <span class="badge">${esc(item.rule_label)}</span>
+          <span class="transformation-field">${esc(item.field)}</span>
+        </div>
+        <div class="transformation-values">
+          <div class="transformation-before"><strong>Было:</strong> ${esc(item.before || "∅")}</div>
+          <div class="transformation-after"><strong>Стало:</strong> ${esc(item.after || "∅")}</div>
+        </div>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function renderKeyValueGrid(containerId, values) {
+    const node = byId(containerId);
+    if (!node) return;
+    const entries = Object.entries(values || {});
+    if (!entries.length) {
+      node.innerHTML = '<div class="section-caption">Нет итоговых атрибутов для отображения.</div>';
+      return;
+    }
+    node.innerHTML = entries.map(([key, value]) => `
+      <div class="attr-item">
+        <div class="attr-key">${esc(key)}</div>
+        <div class="attr-value">${esc(value)}</div>
+      </div>
+    `).join("");
+  }
+
+  function renderRawAttributes(containerId, values) {
+    renderKeyValueGrid(containerId, values);
   }
 
   function slug(value) {
@@ -579,10 +799,6 @@
       .map((char) => char.codePointAt(0).toString(16))
       .join("_");
     return fallback ? `u_${fallback}` : "unknown";
-  }
-
-  function csvCell(value) {
-    return `"${String(value == null ? "" : value).replace(/"/g, '""')}"`;
   }
 
   function formatKpiValue(kpi) {
@@ -602,8 +818,30 @@
     }).format(Number(value || 0));
   }
 
+  function formatPercent(value) {
+    return new Intl.NumberFormat("ru-RU", {
+      style: "percent",
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(Number(value || 0));
+  }
+
+  function formatSignedThousands(value) {
+    const sign = Number(value || 0) >= 0 ? "+" : "−";
+    return `${sign}${formatThousandsNumber(Math.abs(toThousands(value)))} тыс. руб.`;
+  }
+
   function toThousands(value) {
     return Number(value || 0) / 1000;
+  }
+
+  function setText(id, value) {
+    const node = byId(id);
+    if (node) node.textContent = value || "";
+  }
+
+  function csvCell(value) {
+    return `"${String(value == null ? "" : value).replace(/"/g, '""')}"`;
   }
 
   function esc(value) {
