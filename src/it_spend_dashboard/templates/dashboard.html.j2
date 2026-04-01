@@ -24,6 +24,24 @@
         </div>
         <div class="filter-grid">
           <div>
+            <label for="detail-year-filter">Год</label>
+            <select id="detail-year-filter">
+              <option value="">Все годы</option>
+              {% for item in dashboard_payload.filters.years %}
+                <option value="{{ item.label }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="detail-month-filter">Месяц</label>
+            <select id="detail-month-filter">
+              <option value="">Все месяцы</option>
+              {% for item in dashboard_payload.filters.months %}
+                <option value="{{ item.id }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
             <label for="detail-status-filter">Статус</label>
             <select id="detail-status-filter">
               <option value="">Все статусы</option>
@@ -40,6 +58,51 @@
               <option value="medium">medium</option>
               <option value="low">low</option>
               <option value="unclassified">unclassified</option>
+            </select>
+          </div>
+          <div>
+            <label for="detail-l1-filter">Категория L1</label>
+            <select id="detail-l1-filter">
+              <option value="">Все L1</option>
+              {% for item in dashboard_payload.filters.categories_l1 %}
+                <option value="{{ item.id }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="detail-l2-filter">Категория L2</label>
+            <select id="detail-l2-filter">
+              <option value="">Все L2</option>
+              {% for item in dashboard_payload.filters.categories_l2 %}
+                <option value="{{ item.id }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="detail-l3-filter">Категория L3</label>
+            <select id="detail-l3-filter">
+              <option value="">Все L3</option>
+              {% for item in dashboard_payload.filters.categories_l3 %}
+                <option value="{{ item.id }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="detail-vendor-filter">Поставщик</label>
+            <select id="detail-vendor-filter">
+              <option value="">Все поставщики</option>
+              {% for item in dashboard_payload.filters.vendors %}
+                <option value="{{ item.id }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="detail-organization-filter">Организация</label>
+            <select id="detail-organization-filter">
+              <option value="">Все организации</option>
+              {% for item in dashboard_payload.filters.organizations %}
+                <option value="{{ item.id }}">{{ item.label }}</option>
+              {% endfor %}
             </select>
           </div>
         </div>
@@ -96,6 +159,7 @@
             <div class="section-caption">Treemap по таксономии расходов</div>
           </div>
         </div>
+        <div id="category-breadcrumb" class="breadcrumb-bar"></div>
         <div id="categories-tree-chart" class="chart chart-tall"></div>
       </article>
 
@@ -132,12 +196,15 @@
             <label for="detail-search">Поиск</label>
             <input id="detail-search" type="search" placeholder="Контрагент, статья, организация, проект">
           </div>
-          <div></div>
-          <div></div>
-          <div style="display:flex;align-items:end;">
+          <div class="toolbar-actions">
+            <button id="detail-export" class="secondary" type="button">CSV экспорт</button>
+          </div>
+          <div class="toolbar-actions">
             <button id="detail-reset" class="secondary" type="button">Сбросить</button>
           </div>
+          <div id="detail-pagination-top" class="pagination-bar"></div>
         </div>
+        <div id="active-filters" class="active-filters"></div>
         <div id="detail-table-summary" class="table-summary"></div>
         <div class="table-wrap">
           <table>
@@ -158,6 +225,7 @@
             <tbody id="detail-table-body"></tbody>
           </table>
         </div>
+        <div id="detail-pagination-bottom" class="pagination-bar pagination-bottom"></div>
       </article>
     </section>
   </main>

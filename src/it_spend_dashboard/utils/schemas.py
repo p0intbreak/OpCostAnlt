@@ -43,8 +43,11 @@ class DashboardFilters(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     years: list[DashboardFilterOption]
+    months: list[DashboardFilterOption]
     statuses: list[DashboardFilterOption]
     categories_l1: list[DashboardFilterOption]
+    categories_l2: list[DashboardFilterOption]
+    categories_l3: list[DashboardFilterOption]
     organizations: list[DashboardFilterOption]
     vendors: list[DashboardFilterOption]
 

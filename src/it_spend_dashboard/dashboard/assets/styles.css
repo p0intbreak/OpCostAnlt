@@ -55,7 +55,7 @@ body {
 }
 .filter-grid, .table-toolbar { display: grid; gap: 12px; }
 .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.table-toolbar { grid-template-columns: 1.5fr 1fr 1fr auto; margin-bottom: 12px; }
+.table-toolbar { grid-template-columns: 1.5fr auto auto 1fr; align-items: end; margin-bottom: 12px; }
 label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 select, input {
   width: 100%; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--border);
@@ -70,6 +70,32 @@ select, input {
 .span-6 { grid-column: span 6; } .span-5 { grid-column: span 5; } .span-4 { grid-column: span 4; }
 .section-header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .section-title { margin: 0; font-size: 20px; }
+.breadcrumb-bar, .active-filters, .pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.breadcrumb-bar { margin: 0 0 12px; min-height: 34px; }
+.active-filters { margin: 0 0 12px; min-height: 36px; }
+.filter-chip, .breadcrumb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+.filter-chip button, .breadcrumb-chip button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+}
 .chart { min-height: 350px; } .chart-tall { min-height: 430px; }
 .insights-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .insight-card { padding: 16px; border-left: 4px solid var(--accent); cursor: pointer; }
@@ -91,6 +117,19 @@ button.secondary {
   border: 1px solid var(--border); background: var(--surface); color: var(--text);
   padding: 10px 12px; border-radius: 12px; cursor: pointer;
 }
+.toolbar-actions { display: flex; align-items: end; }
+.pagination-bar { justify-content: flex-end; min-height: 38px; }
+.pagination-bottom { margin-top: 12px; }
+.pagination-bar button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.pagination-bar button:disabled { opacity: 0.45; cursor: default; }
+.pagination-info { color: var(--muted); font-size: 13px; padding: 0 4px; }
 @media (max-width: 1200px) {
   .hero, .kpi-grid, .insights-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 12; }

@@ -1,0 +1,447 @@
+{
+  "metadata": {
+    "title": "Дашборд расходов IT-департамента",
+    "generated_at": "SNAPSHOT",
+    "currency": "RUB",
+    "detail_rows_count": 3,
+    "available_years": [
+      2025,
+      2026
+    ]
+  },
+  "filters": {
+    "years": [
+      {
+        "id": "2025",
+        "label": "2025"
+      },
+      {
+        "id": "2026",
+        "label": "2026"
+      }
+    ],
+    "months": [
+      {
+        "id": "1",
+        "label": "01"
+      },
+      {
+        "id": "2",
+        "label": "02"
+      },
+      {
+        "id": "3",
+        "label": "03"
+      }
+    ],
+    "statuses": [
+      {
+        "id": "approved_not_paid",
+        "label": "Согласовано, не оплачено"
+      },
+      {
+        "id": "in_approval",
+        "label": "На согласовании"
+      },
+      {
+        "id": "paid",
+        "label": "Оплачено"
+      }
+    ],
+    "categories_l1": [
+      {
+        "id": "infrastructure",
+        "label": "infrastructure"
+      },
+      {
+        "id": "other_it",
+        "label": "other_it"
+      },
+      {
+        "id": "software_and_licenses",
+        "label": "software_and_licenses"
+      }
+    ],
+    "categories_l2": [
+      {
+        "id": "cloud_and_hosting",
+        "label": "cloud_and_hosting"
+      },
+      {
+        "id": "productivity_and_collaboration",
+        "label": "productivity_and_collaboration"
+      },
+      {
+        "id": "unclassified",
+        "label": "unclassified"
+      }
+    ],
+    "categories_l3": [
+      {
+        "id": "managed_hosting",
+        "label": "managed_hosting"
+      },
+      {
+        "id": "office_suites",
+        "label": "office_suites"
+      },
+      {
+        "id": "review_required",
+        "label": "review_required"
+      }
+    ],
+    "organizations": [
+      {
+        "id": "org_1",
+        "label": "org 1"
+      },
+      {
+        "id": "org_2",
+        "label": "org 2"
+      }
+    ],
+    "vendors": [
+      {
+        "id": "vendor_a",
+        "label": "vendor a"
+      },
+      {
+        "id": "vendor_b",
+        "label": "vendor b"
+      }
+    ]
+  },
+  "kpis": [
+    {
+      "id": "total_amount",
+      "label": "Общая сумма расходов",
+      "value": 600.0
+    },
+    {
+      "id": "payments_count",
+      "label": "Количество операций",
+      "value": 3
+    },
+    {
+      "id": "paid_amount",
+      "label": "Оплаченные расходы",
+      "value": 100.0
+    },
+    {
+      "id": "unpaid_amount",
+      "label": "Неоплаченные и в согласовании",
+      "value": 500.0
+    },
+    {
+      "id": "review_share",
+      "label": "Доля записей на проверку",
+      "value": "33.3%"
+    }
+  ],
+  "yearly_comparison": [
+    {
+      "year": 2025,
+      "total_amount": 100.0,
+      "payments_count": 1
+    },
+    {
+      "year": 2026,
+      "total_amount": 500.0,
+      "payments_count": 2
+    }
+  ],
+  "monthly_trends": [
+    {
+      "year": 2025,
+      "month": 1,
+      "year_month": "2025-01",
+      "total_amount": 100.0,
+      "payments_count": 1
+    },
+    {
+      "year": 2026,
+      "month": 2,
+      "year_month": "2026-02",
+      "total_amount": 200.0,
+      "payments_count": 1
+    },
+    {
+      "year": 2026,
+      "month": 3,
+      "year_month": "2026-03",
+      "total_amount": 300.0,
+      "payments_count": 1
+    }
+  ],
+  "categories_tree": [
+    {
+      "id": "infrastructure",
+      "label": "infrastructure",
+      "level": "l1",
+      "total_amount": 100.0,
+      "payments_count": 1,
+      "children": [
+        {
+          "id": "cloud_and_hosting",
+          "label": "cloud_and_hosting",
+          "level": "l2",
+          "total_amount": 100.0,
+          "payments_count": 1,
+          "children": [
+            {
+              "id": "managed_hosting",
+              "label": "managed_hosting",
+              "level": "l3",
+              "total_amount": 100.0,
+              "payments_count": 1,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "other_it",
+      "label": "other_it",
+      "level": "l1",
+      "total_amount": 300.0,
+      "payments_count": 1,
+      "children": [
+        {
+          "id": "unclassified",
+          "label": "unclassified",
+          "level": "l2",
+          "total_amount": 300.0,
+          "payments_count": 1,
+          "children": [
+            {
+              "id": "review_required",
+              "label": "review_required",
+              "level": "l3",
+              "total_amount": 300.0,
+              "payments_count": 1,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "software_and_licenses",
+      "label": "software_and_licenses",
+      "level": "l1",
+      "total_amount": 200.0,
+      "payments_count": 1,
+      "children": [
+        {
+          "id": "productivity_and_collaboration",
+          "label": "productivity_and_collaboration",
+          "level": "l2",
+          "total_amount": 200.0,
+          "payments_count": 1,
+          "children": [
+            {
+              "id": "office_suites",
+              "label": "office_suites",
+              "level": "l3",
+              "total_amount": 200.0,
+              "payments_count": 1,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "status_breakdown": [
+    {
+      "status_id": "approved_not_paid",
+      "status_label": "Согласовано, не оплачено",
+      "total_amount": 200.0,
+      "payments_count": 1
+    },
+    {
+      "status_id": "in_approval",
+      "status_label": "На согласовании",
+      "total_amount": 300.0,
+      "payments_count": 1
+    },
+    {
+      "status_id": "paid",
+      "status_label": "Оплачено",
+      "total_amount": 100.0,
+      "payments_count": 1
+    }
+  ],
+  "vendors": [
+    {
+      "id": "vendor_a",
+      "label": "vendor a",
+      "total_amount": 100.0,
+      "payments_count": 1
+    },
+    {
+      "id": "vendor_b",
+      "label": "vendor b",
+      "total_amount": 500.0,
+      "payments_count": 2
+    }
+  ],
+  "organizations": [
+    {
+      "id": "org_1",
+      "label": "org 1",
+      "total_amount": 100.0,
+      "payments_count": 1
+    },
+    {
+      "id": "org_2",
+      "label": "org 2",
+      "total_amount": 500.0,
+      "payments_count": 2
+    }
+  ],
+  "insights": [],
+  "detail_rows": [
+    {
+      "payment_id": "p1",
+      "period_date": "2025-01-31",
+      "year": 2025,
+      "month": 1,
+      "quarter": 1,
+      "amount": 100.0,
+      "status_group": "paid",
+      "article_name": "hosting",
+      "article_code": "A1",
+      "vendor_id": "vendor_a",
+      "vendor_label": "vendor a",
+      "organization_id": "org_1",
+      "organization_label": "org 1",
+      "project_name": "erp",
+      "department_name": "it ops",
+      "l1_category_id": "infrastructure",
+      "l1_category_label": "infrastructure",
+      "l2_category_id": "cloud_and_hosting",
+      "l2_category_label": "cloud_and_hosting",
+      "l3_category_id": "managed_hosting",
+      "l3_category_label": "managed_hosting",
+      "classification_confidence": "high"
+    },
+    {
+      "payment_id": "p2",
+      "period_date": "2026-02-28",
+      "year": 2026,
+      "month": 2,
+      "quarter": 1,
+      "amount": 200.0,
+      "status_group": "approved_not_paid",
+      "article_name": "microsoft 365",
+      "article_code": "A2",
+      "vendor_id": "vendor_b",
+      "vendor_label": "vendor b",
+      "organization_id": "org_2",
+      "organization_label": "org 2",
+      "project_name": "crm",
+      "department_name": "it support",
+      "l1_category_id": "software_and_licenses",
+      "l1_category_label": "software_and_licenses",
+      "l2_category_id": "productivity_and_collaboration",
+      "l2_category_label": "productivity_and_collaboration",
+      "l3_category_id": "office_suites",
+      "l3_category_label": "office_suites",
+      "classification_confidence": "medium"
+    },
+    {
+      "payment_id": "p3",
+      "period_date": "2026-03-31",
+      "year": 2026,
+      "month": 3,
+      "quarter": 1,
+      "amount": 300.0,
+      "status_group": "in_approval",
+      "article_name": "misc",
+      "article_code": "A3",
+      "vendor_id": "vendor_b",
+      "vendor_label": "vendor b",
+      "organization_id": "org_2",
+      "organization_label": "org 2",
+      "project_name": "infra",
+      "department_name": "security",
+      "l1_category_id": "other_it",
+      "l1_category_label": "other_it",
+      "l2_category_id": "unclassified",
+      "l2_category_label": "unclassified",
+      "l3_category_id": "review_required",
+      "l3_category_label": "review_required",
+      "classification_confidence": "low"
+    }
+  ],
+  "detail_row_index": {
+    "year:2025": [
+      "p1"
+    ],
+    "month:1": [
+      "p1"
+    ],
+    "status:paid": [
+      "p1"
+    ],
+    "organization:org_1": [
+      "p1"
+    ],
+    "vendor:vendor_a": [
+      "p1"
+    ],
+    "l1:infrastructure": [
+      "p1"
+    ],
+    "l2:cloud_and_hosting": [
+      "p1"
+    ],
+    "l3:managed_hosting": [
+      "p1"
+    ],
+    "year:2026": [
+      "p2",
+      "p3"
+    ],
+    "month:2": [
+      "p2"
+    ],
+    "status:approved_not_paid": [
+      "p2"
+    ],
+    "organization:org_2": [
+      "p2",
+      "p3"
+    ],
+    "vendor:vendor_b": [
+      "p2",
+      "p3"
+    ],
+    "l1:software_and_licenses": [
+      "p2"
+    ],
+    "l2:productivity_and_collaboration": [
+      "p2"
+    ],
+    "l3:office_suites": [
+      "p2"
+    ],
+    "month:3": [
+      "p3"
+    ],
+    "status:in_approval": [
+      "p3"
+    ],
+    "l1:other_it": [
+      "p3"
+    ],
+    "l2:unclassified": [
+      "p3"
+    ],
+    "l3:review_required": [
+      "p3"
+    ]
+  }
+}

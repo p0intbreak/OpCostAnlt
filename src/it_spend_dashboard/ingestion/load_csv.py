@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import logging
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -55,8 +56,7 @@ def _log_dataframe_profile(
     separator: str | None,
 ) -> None:
     """Log basic dataset profiling information for observability."""
-    nulls = dataframe.isna().sum().to_dict()
-    dtypes = {column: str(dtype) for column, dtype in dataframe.dtypes.items()}
+    profile = build_dataframe_profile(dataframe)
     LOGGER.info(
         "Loaded CSV file '%s' with shape=%s encoding=%s separator=%s",
         path,
@@ -64,5 +64,15 @@ def _log_dataframe_profile(
         encoding,
         separator or "auto",
     )
-    LOGGER.info("CSV dtypes: %s", dtypes)
-    LOGGER.info("CSV null_counts: %s", nulls)
+    LOGGER.info("CSV dtypes: %s", profile["dtypes"])
+    LOGGER.info("CSV null_counts: %s", profile["null_counts"])
+
+
+def build_dataframe_profile(dataframe: pd.DataFrame) -> dict[str, Any]:
+    """Build a compact profile summary for a DataFrame."""
+    return {
+        "shape": [int(dataframe.shape[0]), int(dataframe.shape[1])],
+        "columns": [str(column) for column in dataframe.columns],
+        "dtypes": {column: str(dtype) for column, dtype in dataframe.dtypes.items()},
+        "null_counts": {column: int(count) for column, count in dataframe.isna().sum().to_dict().items()},
+    }

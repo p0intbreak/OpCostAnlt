@@ -89,12 +89,18 @@ def _build_filters(fact: pd.DataFrame) -> dict[str, Any]:
     """Build filter descriptors for the frontend."""
     return {
         "years": _filter_options(sorted(fact["year"].dropna().astype(int).unique().tolist())),
+        "months": [
+            {"id": str(month), "label": f"{month:02d}"}
+            for month in sorted(fact["month"].dropna().astype(int).unique().tolist())
+        ],
         "statuses": [
             {"id": status, "label": STATUS_LABELS.get(status, status)}
             for status in sorted(fact["status_group"].fillna("").astype(str).unique().tolist())
             if status
         ],
         "categories_l1": _filter_options(sorted(fact["l1_category"].fillna("").astype(str).unique().tolist())),
+        "categories_l2": _filter_options(sorted(fact["l2_category"].fillna("").astype(str).unique().tolist())),
+        "categories_l3": _filter_options(sorted(fact["l3_category"].fillna("").astype(str).unique().tolist())),
         "organizations": _filter_options(sorted(fact["organization_name"].fillna("").astype(str).unique().tolist())),
         "vendors": _filter_options(sorted(fact["vendor_name"].fillna("").astype(str).unique().tolist())),
     }
@@ -235,6 +241,7 @@ def _build_detail_row_index(detail_rows: list[dict[str, Any]]) -> dict[str, list
         payment_id = str(row["payment_id"])
         keys = {
             f"year:{row['year']}",
+            f"month:{row['month']}",
             f"status:{row['status_group']}",
             f"organization:{row['organization_id']}",
             f"vendor:{row['vendor_id']}",

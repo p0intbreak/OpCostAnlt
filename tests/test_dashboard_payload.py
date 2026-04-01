@@ -122,6 +122,9 @@ def test_payload_uses_id_friendly_fields_and_russian_labels() -> None:
     payload = build_dashboard_payload(_sample_payments_fact())
 
     assert payload["filters"]["statuses"][0]["label"]
+    assert payload["filters"]["months"][0]["id"] == "1"
+    assert payload["filters"]["categories_l2"]
+    assert payload["filters"]["categories_l3"]
     assert payload["detail_rows"][0]["vendor_id"] == "vendor_a"
     assert payload["detail_rows"][0]["organization_id"] == "org_1"
     assert payload["status_breakdown"][0]["status_label"]
