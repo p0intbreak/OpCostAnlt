@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>{{ inline_css | safe }}</style>
+  </head>
+  <body data-theme="light">
+    {% block body %}{% endblock %}
+    <script>
+      window.dashboardPayload = {{ dashboard_payload | tojson }};
+    </script>
+    <script>{{ inline_js | safe }}</script>
+  </body>
+</html>

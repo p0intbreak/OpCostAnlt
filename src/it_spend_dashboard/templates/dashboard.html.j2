@@ -1,16 +1,164 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ title }}</title>
-  </head>
-  <body>
-    <main>
-      <h1>{{ title }}</h1>
-      <p>Generated at: {{ generated_at }}</p>
-      <p>Placeholder dashboard template.</p>
-    </main>
-  </body>
-</html>
+{% extends "base.html.j2" %}
 
+{% block body %}
+  <main class="page-shell">
+    <section class="hero">
+      <div class="hero-card">
+        <h1>{{ title }}</h1>
+        <p class="subtitle">
+          Интерактивный дашборд расходов IT-департамента с локальным drill-down без backend.
+        </p>
+        <div class="hero-meta">
+          <span class="meta-pill">Валюта: {{ metadata.currency }}</span>
+          <span class="meta-pill">Годы: {{ metadata.available_years | join(", ") }}</span>
+          <span class="meta-pill">Строк детализации: {{ metadata.detail_rows_count }}</span>
+          <span class="meta-pill">Сформирован: {{ metadata.generated_at }}</span>
+        </div>
+      </div>
+      <aside class="filter-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Фильтры</h2>
+            <div class="section-caption">Управляют детальной таблицей</div>
+          </div>
+        </div>
+        <div class="filter-grid">
+          <div>
+            <label for="detail-status-filter">Статус</label>
+            <select id="detail-status-filter">
+              <option value="">Все статусы</option>
+              {% for item in dashboard_payload.filters.statuses %}
+                <option value="{{ item.id }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="detail-confidence-filter">Качество классификации</label>
+            <select id="detail-confidence-filter">
+              <option value="">Все уровни</option>
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+              <option value="unclassified">unclassified</option>
+            </select>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section id="kpi-grid" class="kpi-grid"></section>
+
+    <section class="content-grid">
+      <article class="section-card span-6">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Годовое сравнение 2025 vs 2026</h2>
+            <div class="section-caption">Сумма расходов по годам</div>
+          </div>
+        </div>
+        <div id="year-comparison-chart" class="chart"></div>
+      </article>
+
+      <article class="section-card span-6">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Статусы и зависшие суммы</h2>
+            <div class="section-caption">Stacked bar по статусным группам</div>
+          </div>
+        </div>
+        <div id="status-breakdown-chart" class="chart"></div>
+      </article>
+
+      <article class="section-card span-7">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Динамика по месяцам</h2>
+            <div class="section-caption">Line chart по годам</div>
+          </div>
+        </div>
+        <div id="monthly-trends-chart" class="chart"></div>
+      </article>
+
+      <article class="section-card span-5">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Топ контрагентов</h2>
+            <div class="section-caption">Top-10 по сумме расходов</div>
+          </div>
+        </div>
+        <div id="vendors-chart" class="chart"></div>
+      </article>
+
+      <article class="section-card span-8">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Структура расходов L1/L2/L3</h2>
+            <div class="section-caption">Treemap по таксономии расходов</div>
+          </div>
+        </div>
+        <div id="categories-tree-chart" class="chart chart-tall"></div>
+      </article>
+
+      <article class="section-card span-4">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Организации / подразделения</h2>
+            <div class="section-caption">Организации с drill-down и обзор подразделений</div>
+          </div>
+        </div>
+        <div id="organizations-chart" class="chart chart-tall"></div>
+        <div id="departments-chart" class="chart"></div>
+      </article>
+
+      <article class="section-card span-12">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Панель инсайтов</h2>
+            <div class="section-caption">Top-5 управленческих инсайтов для UI</div>
+          </div>
+        </div>
+        <div id="insights-grid" class="insights-grid"></div>
+      </article>
+
+      <article class="table-card span-12">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Детальная таблица</h2>
+            <div class="section-caption">Client-side filtering и sorting</div>
+          </div>
+        </div>
+        <div class="table-toolbar">
+          <div>
+            <label for="detail-search">Поиск</label>
+            <input id="detail-search" type="search" placeholder="Контрагент, статья, организация, проект">
+          </div>
+          <div></div>
+          <div></div>
+          <div style="display:flex;align-items:end;">
+            <button id="detail-reset" class="secondary" type="button">Сбросить</button>
+          </div>
+        </div>
+        <div id="detail-table-summary" class="table-summary"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-sort-key="period_date">Дата</th>
+                <th data-sort-key="vendor_label">Контрагент</th>
+                <th data-sort-key="organization_label">Организация</th>
+                <th data-sort-key="article_name">Статья</th>
+                <th data-sort-key="status_group">Статус</th>
+                <th data-sort-key="l1_category_label">L1</th>
+                <th data-sort-key="l2_category_label">L2</th>
+                <th data-sort-key="l3_category_label">L3</th>
+                <th data-sort-key="classification_confidence">Качество</th>
+                <th data-sort-key="amount">Сумма</th>
+              </tr>
+            </thead>
+            <tbody id="detail-table-body"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </main>
+{% endblock %}
