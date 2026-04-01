@@ -145,6 +145,8 @@ class DashboardDetailRow(BaseModel):
     status_group: str
     article_name: str
     article_code: str
+    contract_name: str
+    expense_subject: str
     vendor_id: str
     vendor_label: str
     organization_id: str

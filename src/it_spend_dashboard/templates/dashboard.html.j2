@@ -15,98 +15,16 @@
           <span class="meta-pill">Сформирован: {{ metadata.generated_at }}</span>
         </div>
       </div>
-      <aside class="filter-card">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Фильтры</h2>
-            <div class="section-caption">Управляют детальной таблицей</div>
-          </div>
+    </section>
+
+    <section class="section-card top-insights">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Панель инсайтов</h2>
+          <div class="section-caption">Top-5 управленческих инсайтов для быстрого перехода в срез</div>
         </div>
-        <div class="filter-grid">
-          <div>
-            <label for="detail-year-filter">Год</label>
-            <select id="detail-year-filter">
-              <option value="">Все годы</option>
-              {% for item in dashboard_payload.filters.years %}
-                <option value="{{ item.label }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="detail-month-filter">Месяц</label>
-            <select id="detail-month-filter">
-              <option value="">Все месяцы</option>
-              {% for item in dashboard_payload.filters.months %}
-                <option value="{{ item.id }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="detail-status-filter">Статус</label>
-            <select id="detail-status-filter">
-              <option value="">Все статусы</option>
-              {% for item in dashboard_payload.filters.statuses %}
-                <option value="{{ item.id }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="detail-confidence-filter">Качество классификации</label>
-            <select id="detail-confidence-filter">
-              <option value="">Все уровни</option>
-              <option value="high">high</option>
-              <option value="medium">medium</option>
-              <option value="low">low</option>
-              <option value="unclassified">unclassified</option>
-            </select>
-          </div>
-          <div>
-            <label for="detail-l1-filter">Категория L1</label>
-            <select id="detail-l1-filter">
-              <option value="">Все L1</option>
-              {% for item in dashboard_payload.filters.categories_l1 %}
-                <option value="{{ item.id }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="detail-l2-filter">Категория L2</label>
-            <select id="detail-l2-filter">
-              <option value="">Все L2</option>
-              {% for item in dashboard_payload.filters.categories_l2 %}
-                <option value="{{ item.id }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="detail-l3-filter">Категория L3</label>
-            <select id="detail-l3-filter">
-              <option value="">Все L3</option>
-              {% for item in dashboard_payload.filters.categories_l3 %}
-                <option value="{{ item.id }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="detail-vendor-filter">Поставщик</label>
-            <select id="detail-vendor-filter">
-              <option value="">Все поставщики</option>
-              {% for item in dashboard_payload.filters.vendors %}
-                <option value="{{ item.id }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="detail-organization-filter">Организация</label>
-            <select id="detail-organization-filter">
-              <option value="">Все организации</option>
-              {% for item in dashboard_payload.filters.organizations %}
-                <option value="{{ item.id }}">{{ item.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      </aside>
+      </div>
+      <div id="insights-grid" class="insights-grid"></div>
     </section>
 
     <section id="kpi-grid" class="kpi-grid"></section>
@@ -126,7 +44,7 @@
         <div class="section-header">
           <div>
             <h2 class="section-title">Статусы и зависшие суммы</h2>
-            <div class="section-caption">Stacked bar по статусным группам</div>
+            <div class="section-caption">Структура по статусным группам</div>
           </div>
         </div>
         <div id="status-breakdown-chart" class="chart"></div>
@@ -136,7 +54,7 @@
         <div class="section-header">
           <div>
             <h2 class="section-title">Динамика по месяцам</h2>
-            <div class="section-caption">Line chart по годам</div>
+            <div class="section-caption">Тренд расходов по месяцам</div>
           </div>
         </div>
         <div id="monthly-trends-chart" class="chart"></div>
@@ -174,27 +92,111 @@
         <div id="departments-chart" class="chart"></div>
       </article>
 
-      <article class="section-card span-12">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Панель инсайтов</h2>
-            <div class="section-caption">Top-5 управленческих инсайтов для UI</div>
-          </div>
-        </div>
-        <div id="insights-grid" class="insights-grid"></div>
-      </article>
-
       <article class="table-card span-12">
         <div class="section-header">
           <div>
             <h2 class="section-title">Детальная таблица</h2>
-            <div class="section-caption">Client-side filtering и sorting</div>
+            <div class="section-caption">Client-side filtering, sorting и export без backend</div>
           </div>
         </div>
+
+        <section class="filter-card inline-filter-card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Фильтры</h2>
+              <div class="section-caption">Управляют детальной таблицей и drill-down</div>
+            </div>
+          </div>
+          <div class="filter-grid">
+            <div>
+              <label for="detail-year-filter">Год</label>
+              <select id="detail-year-filter">
+                <option value="">Все годы</option>
+                {% for item in dashboard_payload.filters.years %}
+                  <option value="{{ item.label }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="detail-month-filter">Месяц</label>
+              <select id="detail-month-filter">
+                <option value="">Все месяцы</option>
+                {% for item in dashboard_payload.filters.months %}
+                  <option value="{{ item.id }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="detail-status-filter">Статус</label>
+              <select id="detail-status-filter">
+                <option value="">Все статусы</option>
+                {% for item in dashboard_payload.filters.statuses %}
+                  <option value="{{ item.id }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="detail-confidence-filter">Качество классификации</label>
+              <select id="detail-confidence-filter">
+                <option value="">Все уровни</option>
+                <option value="high">high</option>
+                <option value="medium">medium</option>
+                <option value="low">low</option>
+                <option value="unclassified">unclassified</option>
+              </select>
+            </div>
+            <div>
+              <label for="detail-l1-filter">Категория L1</label>
+              <select id="detail-l1-filter">
+                <option value="">Все L1</option>
+                {% for item in dashboard_payload.filters.categories_l1 %}
+                  <option value="{{ item.id }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="detail-l2-filter">Категория L2</label>
+              <select id="detail-l2-filter">
+                <option value="">Все L2</option>
+                {% for item in dashboard_payload.filters.categories_l2 %}
+                  <option value="{{ item.id }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="detail-l3-filter">Категория L3</label>
+              <select id="detail-l3-filter">
+                <option value="">Все L3</option>
+                {% for item in dashboard_payload.filters.categories_l3 %}
+                  <option value="{{ item.id }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="detail-vendor-filter">Поставщик</label>
+              <select id="detail-vendor-filter">
+                <option value="">Все поставщики</option>
+                {% for item in dashboard_payload.filters.vendors %}
+                  <option value="{{ item.id }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="detail-organization-filter">Организация</label>
+              <select id="detail-organization-filter">
+                <option value="">Все организации</option>
+                {% for item in dashboard_payload.filters.organizations %}
+                  <option value="{{ item.id }}">{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </section>
+
         <div class="table-toolbar">
           <div>
             <label for="detail-search">Поиск</label>
-            <input id="detail-search" type="search" placeholder="Контрагент, статья, организация, проект">
+            <input id="detail-search" type="search" placeholder="Контрагент, предмет расхода, организация, проект">
           </div>
           <div class="toolbar-actions">
             <button id="detail-export" class="secondary" type="button">CSV экспорт</button>
@@ -204,8 +206,10 @@
           </div>
           <div id="detail-pagination-top" class="pagination-bar"></div>
         </div>
+
         <div id="active-filters" class="active-filters"></div>
         <div id="detail-table-summary" class="table-summary"></div>
+
         <div class="table-wrap">
           <table>
             <thead>
@@ -213,19 +217,18 @@
                 <th data-sort-key="period_date">Дата</th>
                 <th data-sort-key="vendor_label">Контрагент</th>
                 <th data-sort-key="organization_label">Организация</th>
-                <th data-sort-key="article_name">Статья</th>
-                <th data-sort-key="status_group">Статус</th>
-                <th data-sort-key="l1_category_label">L1</th>
-                <th data-sort-key="l2_category_label">L2</th>
-                <th data-sort-key="l3_category_label">L3</th>
+                <th data-sort-key="expense_subject">Предмет расхода</th>
+                <th data-sort-key="project_name">Проект</th>
                 <th data-sort-key="classification_confidence">Качество</th>
                 <th data-sort-key="classification_reason_human">Почему отнесено в категорию</th>
-                <th data-sort-key="amount">Сумма</th>
+                <th data-sort-key="status_group">Статус</th>
+                <th data-sort-key="amount">Сумма, тыс. руб.</th>
               </tr>
             </thead>
             <tbody id="detail-table-body"></tbody>
           </table>
         </div>
+
         <div id="detail-pagination-bottom" class="pagination-bar pagination-bottom"></div>
       </article>
     </section>

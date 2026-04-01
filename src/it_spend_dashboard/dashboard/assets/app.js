@@ -22,12 +22,23 @@
   };
 
   const byId = (id) => document.getElementById(id);
+  const amountAxisTemplate = {
+    color: "#5f6b7a",
+    gridcolor: "rgba(95,107,122,0.18)",
+    tickformat: ",.0f",
+  };
   const statusLabels = {
     paid: "Оплачено",
     approved_not_paid: "Согласовано, не оплачено",
     in_approval: "На согласовании",
     rejected: "Отклонено",
     other: "Прочее",
+  };
+  const cyrillicToLatin = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i",
+    й: "i", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t",
+    у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "",
+    э: "e", ю: "yu", я: "ya",
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -56,7 +67,7 @@
       const card = document.createElement("button");
       card.type = "button";
       card.className = "kpi-card";
-      card.innerHTML = `<div class="kpi-label">${esc(kpi.label)}</div><div class="kpi-value">${esc(String(kpi.value))}</div>`;
+      card.innerHTML = `<div class="kpi-label">${esc(kpi.label)}</div><div class="kpi-value">${esc(formatKpiValue(kpi))}</div>`;
       card.addEventListener("click", () => applyKpiFilter(kpi.id));
       root.appendChild(card);
     });
@@ -68,12 +79,12 @@
       "year-comparison-chart",
       [{
         x: rows.map((row) => String(row.year)),
-        y: rows.map((row) => row.total_amount),
+        y: rows.map((row) => toThousands(row.total_amount)),
         type: "bar",
         customdata: rows.map((row) => [String(row.year)]),
-        hovertemplate: "Год %{x}<br>Сумма %{y:.2f}<extra></extra>",
+        hovertemplate: "Год %{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
       }],
-      baseLayout("Сумма расходов по годам"),
+      baseLayout("Сумма расходов по годам, тыс. руб."),
       { responsive: true }
     );
     bindPlotClick("year-comparison-chart", (point) => setFilter("year", point.customdata[0]));
@@ -86,14 +97,14 @@
       const scoped = rows.filter((row) => row.year === year);
       return {
         x: scoped.map((row) => row.year_month),
-        y: scoped.map((row) => row.total_amount),
+        y: scoped.map((row) => toThousands(row.total_amount)),
         mode: "lines+markers",
         name: String(year),
         customdata: scoped.map((row) => [String(row.year), String(row.month)]),
-        hovertemplate: "%{x}<br>Сумма %{y:.2f}<extra></extra>",
+        hovertemplate: "%{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
       };
     });
-    Plotly.newPlot("monthly-trends-chart", traces, baseLayout("Динамика по месяцам"), { responsive: true });
+    Plotly.newPlot("monthly-trends-chart", traces, baseLayout("Динамика по месяцам, тыс. руб."), { responsive: true });
     bindPlotClick("monthly-trends-chart", (point) => {
       setFilter("year", point.customdata[0], false);
       setFilter("month", point.customdata[1], true);
@@ -109,9 +120,9 @@
         labels: flattened.labels,
         ids: flattened.ids,
         parents: flattened.parents,
-        values: flattened.values,
+        values: flattened.values.map((value) => toThousands(value)),
         branchvalues: "total",
-        hovertemplate: "%{label}<br>Сумма %{value:.2f}<extra></extra>",
+        hovertemplate: "%{label}<br>Сумма %{value:,.2f} тыс. руб.<extra></extra>",
       }],
       { margin: { l: 0, r: 0, t: 8, b: 0 }, paper_bgcolor: "transparent" },
       { responsive: true }
@@ -123,16 +134,16 @@
     const rows = payload.status_breakdown || [];
     const traces = rows.map((row) => ({
       x: ["Статусы"],
-      y: [row.total_amount],
+      y: [toThousands(row.total_amount)],
       name: row.status_label,
       type: "bar",
       customdata: [[row.status_id]],
-      hovertemplate: `${row.status_label}<br>Сумма %{y:.2f}<extra></extra>`,
+      hovertemplate: `${row.status_label}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>`,
     }));
     Plotly.newPlot(
       "status-breakdown-chart",
       traces,
-      { ...baseLayout("Статусная структура"), barmode: "stack", margin: { l: 36, r: 16, t: 36, b: 36 } },
+      { ...baseLayout("Статусная структура, тыс. руб."), barmode: "stack", margin: { l: 36, r: 16, t: 36, b: 36 } },
       { responsive: true }
     );
     bindPlotClick("status-breakdown-chart", (point) => setFilter("status_group", point.customdata[0]));
@@ -143,14 +154,18 @@
     Plotly.newPlot(
       containerId,
       [{
-        x: topRows.map((row) => row.total_amount),
+        x: topRows.map((row) => toThousands(row.total_amount)),
         y: topRows.map((row) => row.label),
         type: "bar",
         orientation: "h",
         customdata: topRows.map((row) => [row.id]),
-        hovertemplate: "%{y}<br>Сумма %{x:.2f}<extra></extra>",
+        hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
       }],
-      { ...baseLayout(""), margin: { l: 160, r: 16, t: 8, b: 32 } },
+      {
+        ...baseLayout(""),
+        margin: { l: 160, r: 16, t: 8, b: 32 },
+        xaxis: amountAxisTemplate,
+      },
       { responsive: true }
     );
     bindPlotClick(containerId, (point) => {
@@ -164,13 +179,17 @@
     Plotly.newPlot(
       "departments-chart",
       [{
-        x: rows.map((row) => row.total_amount),
+        x: rows.map((row) => toThousands(row.total_amount)),
         y: rows.map((row) => row.label),
         type: "bar",
         orientation: "h",
-        hovertemplate: "%{y}<br>Сумма %{x:.2f}<extra></extra>",
+        hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
       }],
-      { ...baseLayout("Подразделения"), margin: { l: 160, r: 16, t: 36, b: 32 } },
+      {
+        ...baseLayout("Подразделения, тыс. руб."),
+        margin: { l: 160, r: 16, t: 36, b: 32 },
+        xaxis: amountAxisTemplate,
+      },
       { responsive: true }
     );
   }
@@ -204,7 +223,7 @@
       state.page = 1;
       renderDetailTable();
     });
-    byId("detail-reset")?.addEventListener("click", resetAllFilters);
+    byId("detail-reset")?.addEventListener("click", () => resetAllFilters());
     byId("detail-export")?.addEventListener("click", exportCurrentSelectionToCsv);
     document.querySelectorAll("[data-sort-key]").forEach((header) => {
       header.addEventListener("click", () => toggleSort(header.dataset.sortKey));
@@ -265,14 +284,18 @@
   }
 
   function applyInsightFilters(filters) {
+    resetAllFilters(false);
     if (filters.status_group) setFilter("status_group", filters.status_group, false);
     if (filters.vendor_name) setFilter("vendor_id", slug(filters.vendor_name), false);
     if (filters.organization_name) setFilter("organization_id", slug(filters.organization_name), false);
     if (filters.l1_category) setFilter("l1_category_id", slug(filters.l1_category), false);
-    if (filters.year && Array.isArray(filters.year) && filters.year.length) setFilter("year", String(filters.year[filters.year.length - 1]), false);
+    if (filters.year && Array.isArray(filters.year) && filters.year.length) {
+      setFilter("year", String(filters.year[filters.year.length - 1]), false);
+    }
     state.page = 1;
     syncSelectValues();
     rerenderAll();
+    byId("detail-table-summary")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function syncSelectValues() {
@@ -347,21 +370,19 @@
     if (!body || !summary) return;
     summary.textContent = `Показано ${pagedRows.length} из ${rows.length} строк`;
     if (!pagedRows.length) {
-      body.innerHTML = '<tr><td colspan="11" class="empty-state">Нет строк под выбранные фильтры</td></tr>';
+      body.innerHTML = '<tr><td colspan="9" class="empty-state">Нет строк под выбранные фильтры</td></tr>';
     } else {
       body.innerHTML = pagedRows.map((row) => `
         <tr>
           <td>${esc(row.period_date)}</td>
           <td>${esc(row.vendor_label)}</td>
           <td>${esc(row.organization_label)}</td>
-          <td>${esc(row.article_name)}</td>
-          <td><span class="badge">${esc(statusLabel(row.status_group))}</span></td>
-          <td>${esc(row.l1_category_label)}</td>
-          <td>${esc(row.l2_category_label)}</td>
-          <td>${esc(row.l3_category_label)}</td>
+          <td>${esc(row.expense_subject || row.article_name)}</td>
+          <td>${esc(row.project_name)}</td>
           <td>${esc(row.classification_confidence)}</td>
-          <td>${esc(row.classification_reason_human)}</td>
-          <td>${formatAmount(row.amount)}</td>
+          <td class="detail-reason-cell">${esc(row.classification_reason_human)}</td>
+          <td class="detail-status-cell"><span class="badge">${esc(statusLabel(row.status_group))}</span></td>
+          <td class="detail-amount-cell">${formatAmountThousands(row.amount)}</td>
         </tr>
       `).join("");
     }
@@ -403,7 +424,9 @@
         const haystack = [
           row.vendor_label,
           row.organization_label,
+          row.expense_subject,
           row.article_name,
+          row.contract_name,
           row.project_name,
           row.department_name,
           row.l1_category_label,
@@ -424,7 +447,7 @@
     const a = left[key];
     const b = right[key];
     if (typeof a === "number" && typeof b === "number") return (a - b) * direction;
-    return String(a).localeCompare(String(b), "ru") * direction;
+    return String(a || "").localeCompare(String(b || ""), "ru") * direction;
   }
 
   function removeFilter(field) {
@@ -448,7 +471,7 @@
     rerenderAll();
   }
 
-  function resetAllFilters() {
+  function resetAllFilters(rerender = true) {
     Object.keys(state.filters).forEach((field) => { state.filters[field] = ""; });
     state.search = "";
     state.page = 1;
@@ -456,7 +479,7 @@
     const search = byId("detail-search");
     if (search) search.value = "";
     syncSelectValues();
-    rerenderAll();
+    if (rerender) rerenderAll();
   }
 
   function toggleSort(key) {
@@ -471,9 +494,13 @@
 
   function exportCurrentSelectionToCsv() {
     const rows = getFilteredRows();
-    const columns = ["period_date", "vendor_label", "organization_label", "article_name", "status_group", "l1_category_label", "l2_category_label", "l3_category_label", "classification_confidence", "classification_reason_human", "amount"];
+    const columns = ["period_date", "vendor_label", "organization_label", "expense_subject", "project_name", "classification_confidence", "classification_reason_human", "status_group", "amount"];
     const csv = [columns.join(",")].concat(
-      rows.map((row) => columns.map((column) => csvCell(row[column])).join(","))
+      rows.map((row) => columns.map((column) => {
+        if (column === "amount") return csvCell(formatAmountThousands(row[column]));
+        if (column === "status_group") return csvCell(statusLabel(row[column]));
+        return csvCell(row[column]);
+      }).join(","))
     ).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -528,8 +555,8 @@
       title: title ? { text: title, font: { size: 16 } } : undefined,
       paper_bgcolor: "transparent",
       plot_bgcolor: "transparent",
-      xaxis: { color: "#5f6b7a", gridcolor: "rgba(95,107,122,0.18)" },
-      yaxis: { color: "#5f6b7a", gridcolor: "rgba(95,107,122,0.18)" },
+      xaxis: amountAxisTemplate,
+      yaxis: amountAxisTemplate,
       legend: { orientation: "h" },
     };
   }
@@ -539,19 +566,53 @@
   }
 
   function slug(value) {
-    return String(value || "").trim().toLowerCase().replace(/[^0-9a-z]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
+    const rawValue = String(value || "").trim().toLowerCase();
+    const transliterated = Array.from(rawValue).map((char) => cyrillicToLatin[char] ?? char).join("");
+    const normalized = transliterated
+      .normalize("NFKD")
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[^0-9a-z]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    if (normalized) return normalized;
+    const fallback = Array.from(rawValue)
+      .filter((char) => !/\s/.test(char))
+      .map((char) => char.codePointAt(0).toString(16))
+      .join("_");
+    return fallback ? `u_${fallback}` : "unknown";
   }
 
   function csvCell(value) {
     return `"${String(value == null ? "" : value).replace(/"/g, '""')}"`;
   }
 
-  function formatAmount(value) {
-    return new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
+  function formatKpiValue(kpi) {
+    if (typeof kpi.value === "string") return kpi.value;
+    if (String(kpi.id || "").includes("amount")) return `${formatThousandsNumber(kpi.value / 1000)} тыс. руб.`;
+    return new Intl.NumberFormat("ru-RU").format(Number(kpi.value || 0));
+  }
+
+  function formatAmountThousands(value) {
+    return `${formatThousandsNumber(toThousands(value))} тыс. руб.`;
+  }
+
+  function formatThousandsNumber(value) {
+    return new Intl.NumberFormat("ru-RU", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
+  }
+
+  function toThousands(value) {
+    return Number(value || 0) / 1000;
   }
 
   function esc(value) {
-    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   function escAttr(value) {

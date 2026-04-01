@@ -34,11 +34,10 @@ def top_spend_categories(payments_fact: pd.DataFrame) -> Insight:
     severity = "warning" if share >= 0.35 else "info"
     return {
         "title": "Крупнейшая категория расходов",
-        "metric": f"{top_row['l1_category']}: {top_row['total_amount']:.2f} ({share:.1%})",
+        "metric": f"{top_row['l1_category']}: {_format_amount_thousands(float(top_row['total_amount']))} ({share:.1%})",
         "explanation": (
-            f"Наибольшая доля затрат приходится на категорию "
-            f"«{top_row['l1_category']}». Ее удельный вес составляет {share:.1%} "
-            f"от общего объема расходов, что важно учитывать при бюджетном контроле."
+            f"Наибольшая доля затрат приходится на категорию «{top_row['l1_category']}». "
+            f"Ее удельный вес составляет {share:.1%} от общего объема расходов."
         ),
         "severity": severity,
         "supporting_filters": {"l1_category": top_row["l1_category"]},
@@ -48,10 +47,7 @@ def top_spend_categories(payments_fact: pd.DataFrame) -> Insight:
 def yoy_growth_categories(payments_fact: pd.DataFrame) -> Insight:
     """Compare category spend between 2025 and 2026 and highlight top growth."""
     filtered = payments_fact[payments_fact["year"].isin([2025, 2026])].copy()
-    grouped = (
-        filtered.groupby(["l1_category", "year"], as_index=False)
-        .agg(total_amount=("amount", "sum"))
-    )
+    grouped = filtered.groupby(["l1_category", "year"], as_index=False).agg(total_amount=("amount", "sum"))
     pivot = grouped.pivot(index="l1_category", columns="year", values="total_amount").fillna(0.0)
     if pivot.empty or 2025 not in pivot.columns or 2026 not in pivot.columns:
         return _empty_insight("Рост расходов год к году")
@@ -71,11 +67,10 @@ def yoy_growth_categories(payments_fact: pd.DataFrame) -> Insight:
     severity = "critical" if row["delta"] > 0 and (row["growth_rate"] == float("inf") or row["growth_rate"] >= 0.5) else "warning"
     return {
         "title": "Рост расходов год к году",
-        "metric": f"{category_name}: {row['delta']:.2f} ({growth_text})",
+        "metric": f"{category_name}: {_format_amount_thousands(float(row['delta']))} ({growth_text})",
         "explanation": (
-            f"По сравнению с 2025 годом максимальный прирост в 2026 году наблюдается "
-            f"в категории «{category_name}». Абсолютное изменение составляет {row['delta']:.2f}, "
-            f"что указывает на необходимость проверки драйверов роста и бюджетных лимитов."
+            f"По сравнению с 2025 годом максимальный прирост в 2026 году наблюдается в категории "
+            f"«{category_name}». Абсолютное изменение составляет {_format_amount_thousands(float(row['delta']))}."
         ),
         "severity": severity,
         "supporting_filters": {"l1_category": category_name, "year": [2025, 2026]},
@@ -89,7 +84,7 @@ def status_bottlenecks(payments_fact: pd.DataFrame) -> Insight:
     if backlog.empty:
         return {
             "title": "Статусные узкие места",
-            "metric": "0.00",
+            "metric": "0,00 тыс. руб.",
             "explanation": "Существенных зависших сумм в статусах согласования и ожидания оплаты не выявлено.",
             "severity": "info",
             "supporting_filters": {"status_group": statuses},
@@ -105,11 +100,11 @@ def status_bottlenecks(payments_fact: pd.DataFrame) -> Insight:
     severity = "critical" if top_row["status_group"] == "approved_not_paid" else "warning"
     return {
         "title": "Статусные узкие места",
-        "metric": f"{top_row['status_group']}: {top_row['total_amount']:.2f}",
+        "metric": f"{top_row['status_group']}: {_format_amount_thousands(float(top_row['total_amount']))}",
         "explanation": (
-            f"Наибольший объем зависших расходов находится в статусе "
-            f"«{top_row['status_group']}». В этом статусе сосредоточено "
-            f"{top_row['payments_count']} операций на сумму {top_row['total_amount']:.2f}."
+            f"Наибольший объем зависших расходов находится в статусе «{top_row['status_group']}». "
+            f"В этом статусе сосредоточено {top_row['payments_count']} операций на сумму "
+            f"{_format_amount_thousands(float(top_row['total_amount']))}."
         ),
         "severity": severity,
         "supporting_filters": {"status_group": top_row["status_group"]},
@@ -136,8 +131,8 @@ def vendor_concentration(payments_fact: pd.DataFrame) -> Insight:
         "metric": f"{top_row['vendor_name']}: {share:.1%}",
         "explanation": (
             f"На одного поставщика приходится {share:.1%} всех расходов. "
-            f"Крупнейший контрагент «{top_row['vendor_name']}» формирует затраты "
-            f"на сумму {top_row['total_amount']:.2f}, что отражает уровень зависимости от поставщика."
+            f"Крупнейший контрагент «{top_row['vendor_name']}» формирует затраты на сумму "
+            f"{_format_amount_thousands(float(top_row['total_amount']))}."
         ),
         "severity": severity,
         "supporting_filters": {"vendor_name": top_row["vendor_name"]},
@@ -150,7 +145,7 @@ def large_unpaid_items(payments_fact: pd.DataFrame) -> Insight:
     if unpaid.empty:
         return {
             "title": "Крупные неоплаченные позиции",
-            "metric": "0.00",
+            "metric": "0,00 тыс. руб.",
             "explanation": "Крупные неоплаченные позиции не обнаружены.",
             "severity": "info",
             "supporting_filters": {"status_group": ["approved_not_paid", "in_approval"]},
@@ -160,9 +155,9 @@ def large_unpaid_items(payments_fact: pd.DataFrame) -> Insight:
     severity = "critical" if row["amount"] >= float(unpaid["amount"].median()) * 2 else "warning"
     return {
         "title": "Крупные неоплаченные позиции",
-        "metric": f"{row['amount']:.2f}",
+        "metric": _format_amount_thousands(float(row["amount"])),
         "explanation": (
-            f"Крупнейшая зависшая сумма составляет {row['amount']:.2f}. "
+            f"Крупнейшая зависшая сумма составляет {_format_amount_thousands(float(row['amount']))}. "
             f"Операция относится к категории «{row['l1_category']} / {row['l2_category']}» "
             f"и контрагенту «{row['vendor_name']}»."
         ),
@@ -187,9 +182,8 @@ def uncategorized_share(payments_fact: pd.DataFrame) -> Insight:
         "title": "Доля неклассифицированных расходов",
         "metric": f"{count} записей ({share:.1%})",
         "explanation": (
-            f"Доля расходов, требующих ручной проверки или уточнения категории, "
-            f"составляет {share:.1%}. Высокое значение этого показателя снижает "
-            f"качество управленческой отчетности и требует пополнения правил классификации."
+            f"Доля расходов, требующих ручной проверки или уточнения категории, составляет {share:.1%}. "
+            f"Высокое значение этого показателя снижает качество управленческой отчетности."
         ),
         "severity": severity,
         "supporting_filters": {"review_required": True},
@@ -209,8 +203,9 @@ def anomaly_candidates(payments_fact: pd.DataFrame) -> Insight:
         q3 = group["amount"].quantile(0.75)
         iqr = q3 - q1
         upper_bound = q3 + 1.5 * iqr
-        abnormal = group[group["amount"] > upper_bound]
+        abnormal = group[group["amount"] > upper_bound].copy()
         if not abnormal.empty:
+            abnormal.attrs = {}
             candidates.append(abnormal)
 
     if not candidates:
@@ -229,7 +224,7 @@ def anomaly_candidates(payments_fact: pd.DataFrame) -> Insight:
         "metric": f"{len(anomalies)} кандидатов",
         "explanation": (
             f"Обнаружены операции с нетипично высокой суммой относительно своей категории. "
-            f"Максимальное отклонение наблюдается по записи на {top_row['amount']:.2f} "
+            f"Максимальное отклонение наблюдается по записи на {_format_amount_thousands(float(top_row['amount']))} "
             f"в категории «{top_row['l1_category']}»."
         ),
         "severity": "warning",
@@ -247,3 +242,7 @@ def _empty_insight(title: str) -> Insight:
         "supporting_filters": {},
     }
 
+
+def _format_amount_thousands(value: float) -> str:
+    """Format a monetary value in thousand-ruble units for the UI."""
+    return f"{value / 1000:,.2f}".replace(",", " ").replace(".", ",") + " тыс. руб."

@@ -7,9 +7,11 @@ import json
 from pathlib import Path
 import re
 from typing import Any
+import unicodedata
 
 import pandas as pd
 
+from it_spend_dashboard.ingestion.normalize_columns import CYRILLIC_TO_LATIN
 from it_spend_dashboard.insights.narratives import build_management_narratives
 from it_spend_dashboard.modeling.aggregations import build_aggregations
 from it_spend_dashboard.modeling.facts import build_payments_fact
@@ -216,6 +218,8 @@ def _build_detail_rows(fact: pd.DataFrame) -> list[dict[str, Any]]:
                 "status_group": str(row["status_group"]),
                 "article_name": str(row["article_name"]),
                 "article_code": str(row["article_code"]),
+                "contract_name": str(row.get("contract_name", "")),
+                "expense_subject": _build_expense_subject(row),
                 "vendor_id": _slugify(str(row["vendor_name"])),
                 "vendor_label": str(row["vendor_name"]),
                 "organization_id": _slugify(str(row["organization_name"])),
@@ -276,8 +280,14 @@ def _filter_options(values: list[object]) -> list[dict[str, str]]:
 
 def _slugify(value: str) -> str:
     """Convert raw values into stable frontend ids."""
-    normalized = re.sub(r"[^0-9a-zA-Z]+", "_", value.strip().lower()).strip("_")
-    return normalized or "unknown"
+    raw_value = value.strip().lower()
+    transliterated = raw_value.translate(CYRILLIC_TO_LATIN)
+    normalized_ascii = unicodedata.normalize("NFKD", transliterated).encode("ascii", "ignore").decode("ascii")
+    normalized = re.sub(r"[^0-9a-zA-Z]+", "_", normalized_ascii).strip("_")
+    if normalized:
+        return normalized
+    unicode_fallback = "_".join(f"{ord(char):x}" for char in raw_value if not char.isspace())
+    return f"u_{unicode_fallback}" if unicode_fallback else "unknown"
 
 
 def _format_date(value: object) -> str:
@@ -292,3 +302,12 @@ def _nullable_int(value: object) -> int | None:
     if pd.isna(value):
         return None
     return int(value)
+
+
+def _build_expense_subject(row: pd.Series) -> str:
+    """Build a more business-friendly subject label for detail rows."""
+    contract_name = str(row.get("contract_name", "") or "").strip()
+    article_name = str(row.get("article_name", "") or "").strip()
+    if contract_name and article_name and contract_name.lower() != article_name.lower():
+        return f"{contract_name} / {article_name}"
+    return contract_name or article_name
