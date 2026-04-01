@@ -72,3 +72,16 @@ This repository is scaffolded with placeholder modules, scripts, and tests. The 
 - insight generation
 - Jinja2-based HTML dashboard rendering
 
+## Definition of Done
+
+The project is considered done when all of the following are true:
+
+- CSV is read without manual pre-editing.
+- Data for 2025 and 2026 is correctly separated and compared.
+- Expenses are classified into L1/L2/L3 categories.
+- A classification coverage report is available.
+- A single HTML dashboard file is generated.
+- All charts are clickable.
+- Drill-down opens detailed rows.
+- Automatic insights are generated.
+- Aggregate totals reconcile with the fact table.

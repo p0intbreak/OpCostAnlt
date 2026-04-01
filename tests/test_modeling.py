@@ -36,6 +36,11 @@ def _sample_classified_payments() -> pd.DataFrame:
                 "l2_category": "cloud_and_hosting",
                 "l3_category": "managed_hosting",
                 "classification_confidence": "high",
+                "matched_rule_id": "infra_cloud_hosting",
+                "matched_keywords": "hosting",
+                "matched_vendor_pattern": "vendor a",
+                "matched_article_pattern": "hosting",
+                "classification_reason_human": "Тестовое объяснение 1",
             },
             {
                 "period": "2025-02-28",
@@ -56,6 +61,11 @@ def _sample_classified_payments() -> pd.DataFrame:
                 "l2_category": "productivity_and_collaboration",
                 "l3_category": "office_suites",
                 "classification_confidence": "medium",
+                "matched_rule_id": "licenses_productivity",
+                "matched_keywords": "microsoft 365",
+                "matched_vendor_pattern": "",
+                "matched_article_pattern": "microsoft 365",
+                "classification_reason_human": "Тестовое объяснение 2",
             },
             {
                 "period": "2026-01-31",
@@ -76,6 +86,11 @@ def _sample_classified_payments() -> pd.DataFrame:
                 "l2_category": "unclassified",
                 "l3_category": "review_required",
                 "classification_confidence": "low",
+                "matched_rule_id": "",
+                "matched_keywords": "",
+                "matched_vendor_pattern": "",
+                "matched_article_pattern": "",
+                "classification_reason_human": "Тестовое объяснение 3",
             },
         ]
     )
@@ -107,6 +122,11 @@ def test_build_payments_fact_creates_expected_grain_and_columns() -> None:
         "l2_category",
         "l3_category",
         "classification_confidence",
+        "matched_rule_id",
+        "matched_keywords",
+        "matched_vendor_pattern",
+        "matched_article_pattern",
+        "classification_reason_human",
     ]
 
 

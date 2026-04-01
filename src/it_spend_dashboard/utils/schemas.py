@@ -158,6 +158,11 @@ class DashboardDetailRow(BaseModel):
     l3_category_id: str
     l3_category_label: str
     classification_confidence: str
+    matched_rule_id: str
+    matched_keywords: str
+    matched_vendor_pattern: str
+    matched_article_pattern: str
+    classification_reason_human: str
 
 
 class DashboardPayload(BaseModel):

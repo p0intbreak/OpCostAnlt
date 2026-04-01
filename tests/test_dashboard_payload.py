@@ -37,6 +37,11 @@ def _sample_payments_fact() -> pd.DataFrame:
                 "l2_category": "cloud_and_hosting",
                 "l3_category": "managed_hosting",
                 "classification_confidence": "high",
+                "matched_rule_id": "infra_cloud_hosting",
+                "matched_keywords": "hosting",
+                "matched_vendor_pattern": "",
+                "matched_article_pattern": "hosting",
+                "classification_reason_human": "Объяснение 1",
             },
             {
                 "payment_id": "p2",
@@ -57,6 +62,11 @@ def _sample_payments_fact() -> pd.DataFrame:
                 "l2_category": "productivity_and_collaboration",
                 "l3_category": "office_suites",
                 "classification_confidence": "medium",
+                "matched_rule_id": "licenses_productivity",
+                "matched_keywords": "microsoft 365",
+                "matched_vendor_pattern": "",
+                "matched_article_pattern": "microsoft 365",
+                "classification_reason_human": "Объяснение 2",
             },
             {
                 "payment_id": "p3",
@@ -77,6 +87,11 @@ def _sample_payments_fact() -> pd.DataFrame:
                 "l2_category": "unclassified",
                 "l3_category": "review_required",
                 "classification_confidence": "low",
+                "matched_rule_id": "",
+                "matched_keywords": "",
+                "matched_vendor_pattern": "",
+                "matched_article_pattern": "",
+                "classification_reason_human": "Объяснение 3",
             },
         ]
     )
@@ -128,6 +143,7 @@ def test_payload_uses_id_friendly_fields_and_russian_labels() -> None:
     assert payload["detail_rows"][0]["vendor_id"] == "vendor_a"
     assert payload["detail_rows"][0]["organization_id"] == "org_1"
     assert payload["status_breakdown"][0]["status_label"]
+    assert payload["detail_rows"][0]["classification_reason_human"]
 
 
 def test_save_dashboard_payload_writes_json_file(tmp_path: Path) -> None:

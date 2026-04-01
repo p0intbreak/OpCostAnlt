@@ -34,6 +34,9 @@ def test_article_rules_have_highest_priority() -> None:
     assert classified.loc[0, "l1_category"] == "infrastructure"
     assert classified.loc[0, "classification_rule_id"] == "infra_cloud_hosting"
     assert classified.loc[0, "classification_confidence"] == "high"
+    assert classified.loc[0, "matched_rule_id"] == "infra_cloud_hosting"
+    assert classified.loc[0, "matched_article_pattern"] in {"hosting", "cloud", "infrastructure"}
+    assert classified.loc[0, "classification_reason_human"]
     assert review_queue.empty
 
 
@@ -61,6 +64,7 @@ def test_vendor_rules_are_used_second() -> None:
     assert classified.loc[0, "l1_category"] == "information_security"
     assert classified.loc[0, "l3_category"] == "endpoint_protection"
     assert "vendor" in classified.loc[0, "classification_reason"]
+    assert classified.loc[0, "matched_vendor_pattern"] in {"kaspersky", "positive technologies"}
 
 
 def test_low_and_unclassified_rows_go_to_review_queue() -> None:
@@ -114,3 +118,4 @@ def test_keyword_score_supports_rule_selection() -> None:
     assert classified.loc[0, "l1_category"] == "development_and_support"
     assert classified.loc[0, "classification_confidence"] in {"medium", "high"}
     assert "keywords=" in classified.loc[0, "classification_reason"]
+    assert classified.loc[0, "matched_keywords"]

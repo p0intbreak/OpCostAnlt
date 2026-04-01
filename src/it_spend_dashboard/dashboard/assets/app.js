@@ -347,7 +347,7 @@
     if (!body || !summary) return;
     summary.textContent = `Показано ${pagedRows.length} из ${rows.length} строк`;
     if (!pagedRows.length) {
-      body.innerHTML = '<tr><td colspan="10" class="empty-state">Нет строк под выбранные фильтры</td></tr>';
+      body.innerHTML = '<tr><td colspan="11" class="empty-state">Нет строк под выбранные фильтры</td></tr>';
     } else {
       body.innerHTML = pagedRows.map((row) => `
         <tr>
@@ -360,6 +360,7 @@
           <td>${esc(row.l2_category_label)}</td>
           <td>${esc(row.l3_category_label)}</td>
           <td>${esc(row.classification_confidence)}</td>
+          <td>${esc(row.classification_reason_human)}</td>
           <td>${formatAmount(row.amount)}</td>
         </tr>
       `).join("");
@@ -408,6 +409,7 @@
           row.l1_category_label,
           row.l2_category_label,
           row.l3_category_label,
+          row.classification_reason_human,
         ].join(" ").toLowerCase();
         if (!haystack.includes(state.search)) return false;
       }
@@ -469,7 +471,7 @@
 
   function exportCurrentSelectionToCsv() {
     const rows = getFilteredRows();
-    const columns = ["period_date", "vendor_label", "organization_label", "article_name", "status_group", "l1_category_label", "l2_category_label", "l3_category_label", "classification_confidence", "amount"];
+    const columns = ["period_date", "vendor_label", "organization_label", "article_name", "status_group", "l1_category_label", "l2_category_label", "l3_category_label", "classification_confidence", "classification_reason_human", "amount"];
     const csv = [columns.join(",")].concat(
       rows.map((row) => columns.map((column) => csvCell(row[column])).join(","))
     ).join("\n");

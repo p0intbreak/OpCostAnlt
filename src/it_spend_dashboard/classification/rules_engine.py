@@ -34,9 +34,14 @@ class RuleMatchResult:
     l2_category: str
     l3_category: str
     classification_reason: str
+    classification_reason_human: str
     classification_confidence: str
     classification_confidence_score: float
     classification_rule_id: str | None
+    matched_rule_id: str | None
+    matched_keywords: list[str]
+    matched_vendor_pattern: str | None
+    matched_article_pattern: str | None
     review_required: bool
 
 
@@ -52,9 +57,14 @@ def classify_payments(dataframe: pd.DataFrame, ruleset: ClassificationRuleset) -
     classified["l2_category"] = [result.l2_category for result in results]
     classified["l3_category"] = [result.l3_category for result in results]
     classified["classification_reason"] = [result.classification_reason for result in results]
+    classified["classification_reason_human"] = [result.classification_reason_human for result in results]
     classified["classification_confidence"] = [result.classification_confidence for result in results]
     classified["classification_confidence_score"] = [result.classification_confidence_score for result in results]
     classified["classification_rule_id"] = [result.classification_rule_id for result in results]
+    classified["matched_rule_id"] = [result.matched_rule_id for result in results]
+    classified["matched_keywords"] = [", ".join(result.matched_keywords) for result in results]
+    classified["matched_vendor_pattern"] = [result.matched_vendor_pattern for result in results]
+    classified["matched_article_pattern"] = [result.matched_article_pattern for result in results]
     classified["review_required"] = [result.review_required for result in results]
 
     review_queue = build_review_queue(classified)
@@ -99,9 +109,14 @@ def classify_record(record: dict[str, str], ruleset: ClassificationRuleset) -> R
         l2_category="unclassified",
         l3_category="review_required",
         classification_reason="No article, vendor, or keyword rule matched.",
+        classification_reason_human="Категория не определена автоматически: ни правило по статье, ни правило по поставщику, ни ключевые слова не дали уверенного совпадения.",
         classification_confidence="unclassified",
         classification_confidence_score=0.0,
         classification_rule_id=None,
+        matched_rule_id=None,
+        matched_keywords=[],
+        matched_vendor_pattern=None,
+        matched_article_pattern=None,
         review_required=True,
     )
 
@@ -114,7 +129,10 @@ def _build_match_result(
     vendor_matched: bool,
 ) -> RuleMatchResult:
     """Create a structured result from the selected matching rule."""
-    keyword_score = _rule_keyword_score(record, rule)
+    matched_keywords = _matched_keywords(record, rule)
+    keyword_score = compute_keyword_score(record, matched_keywords)
+    matched_vendor_pattern = _matched_vendor_pattern(record, rule) if vendor_matched else None
+    matched_article_pattern = _matched_article_pattern(record, rule) if article_matched else None
     numeric_confidence = compose_confidence_score(
         base_confidence=rule.confidence,
         article_matched=article_matched,
@@ -123,30 +141,38 @@ def _build_match_result(
     )
     confidence = confidence_bucket(numeric_confidence)
     review_required = confidence in {"low", "unclassified"} or numeric_confidence < rule.review_required_below
-    reason = _build_reason(rule, article_matched=article_matched, vendor_matched=vendor_matched, keyword_score=keyword_score)
+    reason = _build_reason(
+        rule,
+        article_matched=article_matched,
+        vendor_matched=vendor_matched,
+        keyword_score=keyword_score,
+    )
+    reason_human = _build_human_reason(
+        rule,
+        article_pattern=matched_article_pattern,
+        vendor_pattern=matched_vendor_pattern,
+        keywords=matched_keywords,
+    )
     return RuleMatchResult(
         l1_category=rule.target.l1,
         l2_category=rule.target.l2,
         l3_category=rule.target.l3,
         classification_reason=reason,
+        classification_reason_human=reason_human,
         classification_confidence=confidence,
         classification_confidence_score=round(numeric_confidence, 4),
         classification_rule_id=rule.rule_id,
+        matched_rule_id=rule.rule_id,
+        matched_keywords=matched_keywords,
+        matched_vendor_pattern=matched_vendor_pattern,
+        matched_article_pattern=matched_article_pattern,
         review_required=review_required,
     )
 
 
 def _rule_keyword_score(record: dict[str, str], rule: ClassificationRule) -> float:
     """Score keyword evidence from rule conditions and record text fields."""
-    keywords: list[str] = []
-    for condition in rule.conditions:
-        if condition.column in {
-            "bit_stati_oborotov_naimenovanie",
-            "naznachenie_platezha",
-            "dogovori_kontragentov_naimenovanie",
-        }:
-            keywords.extend(extract_keywords(condition.values))
-    return compute_keyword_score(record, keywords)
+    return compute_keyword_score(record, _matched_keywords(record, rule))
 
 
 def _build_reason(
@@ -166,6 +192,76 @@ def _build_reason(
         evidence.append(f"keywords={keyword_score:.2f}")
     evidence_text = ", ".join(evidence) if evidence else "rule fallback"
     return f"Matched rule '{rule.rule_id}' using {evidence_text}."
+
+
+def _build_human_reason(
+    rule: ClassificationRule,
+    *,
+    article_pattern: str | None,
+    vendor_pattern: str | None,
+    keywords: list[str],
+) -> str:
+    """Build a user-facing explanation for why the row was classified."""
+    fragments: list[str] = [f"Применено правило {rule.rule_id}."]
+    if article_pattern:
+        fragments.append(f"Совпала статья/код с шаблоном '{article_pattern}'.")
+    if vendor_pattern:
+        fragments.append(f"Совпал поставщик или договор с шаблоном '{vendor_pattern}'.")
+    if keywords:
+        fragments.append(f"Дополнительно сработали ключевые слова: {', '.join(keywords)}.")
+    fragments.append(
+        f"Запись отнесена в категорию {rule.target.l1} / {rule.target.l2} / {rule.target.l3}."
+    )
+    return " ".join(fragments)
+
+
+def _matched_keywords(record: dict[str, str], rule: ClassificationRule) -> list[str]:
+    """Return the subset of rule keywords that actually matched the record."""
+    matched: list[str] = []
+    text_fields = [
+        _normalize(record.get("bit_stati_oborotov_naimenovanie", "")),
+        _normalize(record.get("naznachenie_platezha", "")),
+        _normalize(record.get("dogovori_kontragentov_naimenovanie", "")),
+    ]
+    for condition in rule.conditions:
+        if condition.column in {
+            "bit_stati_oborotov_naimenovanie",
+            "naznachenie_platezha",
+            "dogovori_kontragentov_naimenovanie",
+        }:
+            for keyword in extract_keywords(condition.values):
+                if keyword and any(keyword in field for field in text_fields):
+                    matched.append(keyword)
+    return list(dict.fromkeys(matched))
+
+
+def _matched_vendor_pattern(record: dict[str, str], rule: ClassificationRule) -> str | None:
+    """Return the matched vendor-related pattern when available."""
+    for condition in rule.conditions:
+        if condition.column in {"kontragenti_naimenovanie", "dogovori_kontragentov_naimenovanie"}:
+            value = _normalize(record.get(condition.column, ""))
+            for pattern in condition.values:
+                normalized = _normalize(pattern)
+                if normalized == "*" or normalized in value:
+                    return pattern
+    return None
+
+
+def _matched_article_pattern(record: dict[str, str], rule: ClassificationRule) -> str | None:
+    """Return the matched article-related pattern when available."""
+    for condition in rule.conditions:
+        if condition.column in {
+            "bit_stati_oborotov_naimenovanie",
+            "bit_stati_oborotov_kodifikator",
+            "p_bit_tipi_statei_oborotov_synonim",
+            "p_bit_vidi_denezhnih_sredstv_synonim",
+        }:
+            value = _normalize(record.get(condition.column, ""))
+            for pattern in condition.values:
+                normalized = _normalize(pattern)
+                if normalized == "*" or normalized in value:
+                    return pattern
+    return None
 
 
 def _record_to_dict(record: dict[str, object]) -> dict[str, str]:

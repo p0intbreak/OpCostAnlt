@@ -32,6 +32,11 @@ def _sample_payments_fact() -> pd.DataFrame:
                 "l2_category": "cloud_and_hosting",
                 "l3_category": "managed_hosting",
                 "classification_confidence": "high",
+                "matched_rule_id": "infra_cloud_hosting",
+                "matched_keywords": "hosting",
+                "matched_vendor_pattern": "",
+                "matched_article_pattern": "hosting",
+                "classification_reason_human": "Объяснение 1",
             },
             {
                 "payment_id": "p2",
@@ -52,6 +57,11 @@ def _sample_payments_fact() -> pd.DataFrame:
                 "l2_category": "productivity_and_collaboration",
                 "l3_category": "office_suites",
                 "classification_confidence": "medium",
+                "matched_rule_id": "licenses_productivity",
+                "matched_keywords": "licenses",
+                "matched_vendor_pattern": "",
+                "matched_article_pattern": "licenses",
+                "classification_reason_human": "Объяснение 2",
             },
         ]
     )
@@ -68,6 +78,7 @@ def test_build_dashboard_renders_single_html_file(tmp_path: Path) -> None:
     assert "window.dashboardPayload" in html
     assert "plotly-2.35.2.min.js" in html
     assert detail_table_title in html
+    assert "Почему отнесено в категорию" in html
     assert "active-filters" in html
     assert "detail-export" in html
     assert "category-breadcrumb" in html

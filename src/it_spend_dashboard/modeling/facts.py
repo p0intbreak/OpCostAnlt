@@ -29,6 +29,11 @@ def build_payments_fact(dataframe: pd.DataFrame) -> pd.DataFrame:
     fact["l2_category"] = _series_or_default(fact, "l2_category", "unclassified")
     fact["l3_category"] = _series_or_default(fact, "l3_category", "review_required")
     fact["classification_confidence"] = _series_or_default(fact, "classification_confidence", "unclassified")
+    fact["matched_rule_id"] = _series_or_default(fact, "matched_rule_id")
+    fact["matched_keywords"] = _series_or_default(fact, "matched_keywords")
+    fact["matched_vendor_pattern"] = _series_or_default(fact, "matched_vendor_pattern")
+    fact["matched_article_pattern"] = _series_or_default(fact, "matched_article_pattern")
+    fact["classification_reason_human"] = _series_or_default(fact, "classification_reason_human")
 
     ordered_columns = [
         "payment_id",
@@ -50,6 +55,11 @@ def build_payments_fact(dataframe: pd.DataFrame) -> pd.DataFrame:
         "l2_category",
         "l3_category",
         "classification_confidence",
+        "matched_rule_id",
+        "matched_keywords",
+        "matched_vendor_pattern",
+        "matched_article_pattern",
+        "classification_reason_human",
     ]
     return fact.loc[:, ordered_columns]
 
@@ -93,4 +103,3 @@ def _stringify(value: object) -> str:
     if pd.isna(value):
         return ""
     return str(value).strip()
-

@@ -229,6 +229,11 @@ def _build_detail_rows(fact: pd.DataFrame) -> list[dict[str, Any]]:
                 "l3_category_id": _slugify(str(row["l3_category"])),
                 "l3_category_label": str(row["l3_category"]),
                 "classification_confidence": str(row["classification_confidence"]),
+                "matched_rule_id": str(row.get("matched_rule_id", "")),
+                "matched_keywords": str(row.get("matched_keywords", "")),
+                "matched_vendor_pattern": str(row.get("matched_vendor_pattern", "")),
+                "matched_article_pattern": str(row.get("matched_article_pattern", "")),
+                "classification_reason_human": str(row.get("classification_reason_human", "")),
             }
         )
     return rows
