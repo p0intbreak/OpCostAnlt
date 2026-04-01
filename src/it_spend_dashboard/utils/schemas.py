@@ -119,6 +119,21 @@ class DashboardEntityRow(BaseModel):
     payments_count: int
 
 
+class DashboardCategoryYoyRow(BaseModel):
+    """Year-over-year delta for an L1 category."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+    left_year: int
+    right_year: int
+    previous_amount: float
+    current_amount: float
+    delta_amount: float
+    delta_share: float
+
+
 class DashboardInsight(BaseModel):
     """Validated insight payload for the dashboard UI."""
 
@@ -206,6 +221,8 @@ class DashboardPayload(BaseModel):
     status_breakdown: list[DashboardStatusRow]
     vendors: list[DashboardEntityRow]
     organizations: list[DashboardEntityRow]
+    departments: list[DashboardEntityRow]
+    category_yoy: list[DashboardCategoryYoyRow]
     insights: list[DashboardInsight]
     detail_rows: list[DashboardDetailRow]
     detail_row_index: dict[str, list[str]]

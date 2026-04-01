@@ -117,14 +117,28 @@
           <div id="category-ranking-chart" class="chart"></div>
         </article>
 
-        <article class="section-card span-6">
+        <article class="section-card span-12">
           <div class="section-header">
             <div>
-              <h3 class="section-title">Топ контрагентов</h3>
-              <div class="section-caption">Какие поставщики формируют наибольшую долю затрат</div>
+              <h3 class="section-title">Поставщики: год → месяцы → состав месяца</h3>
+              <div class="section-caption">Топ-10 поставщиков по сумме за выбранный год, помесячная динамика выбранного поставщика и детализация выбранного месяца по составляющим</div>
             </div>
           </div>
-          <div id="vendors-chart" class="chart"></div>
+          <div id="vendor-drilldown-state" class="section-caption vendor-drilldown-state"></div>
+          <div class="vendor-drilldown-grid">
+            <div class="vendor-drilldown-panel">
+              <div class="vendor-drilldown-title">Топ-10 поставщиков за год</div>
+              <div id="vendors-top-chart" class="chart chart-compact"></div>
+            </div>
+            <div class="vendor-drilldown-panel">
+              <div class="vendor-drilldown-title">Месяцы выбранного поставщика</div>
+              <div id="vendor-monthly-chart" class="chart chart-compact"></div>
+            </div>
+            <div class="vendor-drilldown-panel">
+              <div class="vendor-drilldown-title">Состав выбранного месяца</div>
+              <div id="vendor-components-chart" class="chart chart-compact"></div>
+            </div>
+          </div>
         </article>
 
         <article class="section-card span-6">

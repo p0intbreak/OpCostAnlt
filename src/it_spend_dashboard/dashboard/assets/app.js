@@ -1,7 +1,6 @@
 (function () {
   const payload = window.dashboardPayload || {};
-  const detailRows = payload.detail_rows || [];
-  const detailRowDetails = payload.detail_row_details || {};
+  const apiBaseUrl = window.dashboardApiBaseUrl || "/api/dashboard";
   const state = {
     filters: {
       year: "",
@@ -18,8 +17,15 @@
     sortKey: "amount",
     sortDirection: "desc",
     page: 1,
-    pageSize: 10,
+    pageSize: 25,
     breadcrumb: [],
+    tableRows: [],
+    totalRows: 0,
+    totalPages: 1,
+    vendorDrilldown: {
+      selectedVendorId: "",
+      selectedMonth: "",
+    },
   };
 
   const byId = (id) => document.getElementById(id);
@@ -44,7 +50,7 @@
 
   document.addEventListener("DOMContentLoaded", init);
 
-  function init() {
+  async function init() {
     renderStoryline();
     renderInsights();
     renderKpis();
@@ -54,25 +60,25 @@
     renderCategoryRanking();
     renderMonthlyTrends();
     renderCategoryYoy();
-    renderEntityBar("vendors-chart", payload.vendors || [], "vendor");
     renderEntityBar("organizations-chart", payload.organizations || [], "organization");
     renderDepartments();
     bindControls();
     bindModalControls();
     renderActiveFilters();
     renderBreadcrumb();
-    renderDetailTable();
+    await loadVendorDrilldown();
+    await loadDetailTable();
   }
 
   function renderStoryline() {
-    const totalAmount = detailRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    const byCategory = groupAmounts(detailRows, "l1_category_label");
-    const byStatus = groupAmounts(detailRows, "status_group");
-    const yoyByCategory = buildCategoryYoyRows();
-    const topCategory = byCategory[0];
-    const growthLeader = yoyByCategory.filter((row) => row.delta_amount > 0).sort((a, b) => b.delta_amount - a.delta_amount)[0];
-    const stuckAmount = (byStatus.find((row) => row.key === "approved_not_paid")?.total_amount || 0)
-      + (byStatus.find((row) => row.key === "in_approval")?.total_amount || 0);
+    const totalAmount = Number((payload.kpis || []).find((item) => item.id === "total_amount")?.value || 0);
+    const topCategory = flattenL1Categories(payload.categories_tree || [])[0];
+    const growthLeader = (payload.category_yoy || [])
+      .filter((row) => Number(row.delta_amount || 0) > 0)
+      .sort((a, b) => Number(b.delta_amount || 0) - Number(a.delta_amount || 0))[0];
+    const stuckAmount = (payload.status_breakdown || [])
+      .filter((row) => ["approved_not_paid", "in_approval"].includes(row.status_id))
+      .reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
 
     setText("story-main-title", topCategory ? topCategory.label : "Крупнейшая статья не найдена");
     setText("story-main-metric", topCategory ? formatAmountThousands(topCategory.total_amount) : "Нет данных");
@@ -84,20 +90,17 @@
     );
 
     setText("story-growth-title", growthLeader ? growthLeader.label : "Нет выраженного роста");
-    setText("story-growth-metric", growthLeader ? `${formatSignedThousands(growthLeader.delta_amount)}` : "Нет данных");
+    setText("story-growth-metric", growthLeader ? formatSignedThousands(growthLeader.delta_amount) : "Нет данных");
     setText(
       "story-growth-text",
       growthLeader
-        ? `В 2026 году категория выросла относительно 2025 года на ${formatPercent(growthLeader.delta_share)}. Это главный кандидат для проверки причин ускорения.`
+        ? `В ${growthLeader.right_year} году категория выросла относительно ${growthLeader.left_year} года на ${formatPercent(growthLeader.delta_share)}. Это главный кандидат для проверки причин ускорения.`
         : "Годовое сравнение пока не показывает явного лидера роста."
     );
 
     setText("story-risk-title", "Неоплаченные и зависшие суммы");
     setText("story-risk-metric", formatAmountThousands(stuckAmount));
-    setText(
-      "story-risk-text",
-      `Суммы в статусах «Согласовано, не оплачено» и «На согласовании» образуют операционный риск и требуют управленческого контроля.`
-    );
+    setText("story-risk-text", "Суммы в статусах «Согласовано, не оплачено» и «На согласовании» образуют операционный риск и требуют управленческого контроля.");
   }
 
   function renderInsights() {
@@ -129,21 +132,16 @@
 
   function renderYearComparison() {
     const rows = payload.yearly_comparison || [];
-    Plotly.newPlot(
-      "year-comparison-chart",
-      [{
-        x: rows.map((row) => String(row.year)),
-        y: rows.map((row) => toThousands(row.total_amount)),
-        type: "bar",
-        marker: { color: ["#a8c0ff", "#2e62ff"] },
-        customdata: rows.map((row) => [String(row.year)]),
-        text: rows.map((row) => formatAmountThousands(row.total_amount)),
-        textposition: "outside",
-        hovertemplate: "Год %{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
-      }],
-      baseLayout(""),
-      { responsive: true }
-    );
+    Plotly.newPlot("year-comparison-chart", [{
+      x: rows.map((row) => String(row.year)),
+      y: rows.map((row) => toThousands(row.total_amount)),
+      type: "bar",
+      marker: { color: ["#a8c0ff", "#2e62ff"] },
+      customdata: rows.map((row) => [String(row.year)]),
+      text: rows.map((row) => formatAmountThousands(row.total_amount)),
+      textposition: "outside",
+      hovertemplate: "Год %{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
+    }], baseLayout(""), { responsive: true });
     bindPlotClick("year-comparison-chart", (point) => setFilter("year", point.customdata[0]));
   }
 
@@ -157,53 +155,38 @@
       customdata: [[row.status_id]],
       hovertemplate: `${row.status_label}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>`,
     }));
-    Plotly.newPlot(
-      "status-breakdown-chart",
-      traces,
-      { ...baseLayout(""), barmode: "stack", margin: { l: 28, r: 12, t: 20, b: 24 } },
-      { responsive: true }
-    );
+    Plotly.newPlot("status-breakdown-chart", traces, { ...baseLayout(""), barmode: "stack", margin: { l: 28, r: 12, t: 20, b: 24 } }, { responsive: true });
     bindPlotClick("status-breakdown-chart", (point) => setFilter("status_group", point.customdata[0]));
   }
 
   function renderCategoriesTree() {
     const flattened = flattenTree(payload.categories_tree || []);
-    Plotly.newPlot(
-      "categories-tree-chart",
-      [{
-        type: "treemap",
-        labels: flattened.labels,
-        ids: flattened.ids,
-        parents: flattened.parents,
-        values: flattened.values.map((value) => toThousands(value)),
-        branchvalues: "total",
-        textinfo: "label+value",
-        hovertemplate: "%{label}<br>Сумма %{value:,.2f} тыс. руб.<extra></extra>",
-      }],
-      { margin: { l: 0, r: 0, t: 4, b: 0 }, paper_bgcolor: "transparent" },
-      { responsive: true }
-    );
+    Plotly.newPlot("categories-tree-chart", [{
+      type: "treemap",
+      labels: flattened.labels,
+      ids: flattened.ids,
+      parents: flattened.parents,
+      values: flattened.values.map((value) => toThousands(value)),
+      branchvalues: "total",
+      textinfo: "label+value",
+      hovertemplate: "%{label}<br>Сумма %{value:,.2f} тыс. руб.<extra></extra>",
+    }], { margin: { l: 0, r: 0, t: 4, b: 0 }, paper_bgcolor: "transparent" }, { responsive: true });
     bindPlotClick("categories-tree-chart", (point) => applyCategoryPath(point.id || ""));
   }
 
   function renderCategoryRanking() {
     const rows = flattenL1Categories(payload.categories_tree || []).slice(0, 8);
-    Plotly.newPlot(
-      "category-ranking-chart",
-      [{
-        x: rows.map((row) => toThousands(row.total_amount)),
-        y: rows.map((row) => row.label),
-        type: "bar",
-        orientation: "h",
-        marker: { color: "#2e62ff" },
-        customdata: rows.map((row) => [row.id]),
-        text: rows.map((row) => formatAmountThousands(row.total_amount)),
-        textposition: "outside",
-        hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
-      }],
-      { ...baseLayout(""), margin: { l: 160, r: 16, t: 8, b: 20 }, xaxis: amountAxisTemplate },
-      { responsive: true }
-    );
+    Plotly.newPlot("category-ranking-chart", [{
+      x: rows.map((row) => toThousands(row.total_amount)),
+      y: rows.map((row) => row.label),
+      type: "bar",
+      orientation: "h",
+      marker: { color: "#2e62ff" },
+      customdata: rows.map((row) => [row.id]),
+      text: rows.map((row) => formatAmountThousands(row.total_amount)),
+      textposition: "outside",
+      hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
+    }], { ...baseLayout(""), margin: { l: 160, r: 16, t: 8, b: 20 }, xaxis: amountAxisTemplate }, { responsive: true });
     bindPlotClick("category-ranking-chart", (point) => setFilter("l1_category_id", point.customdata[0]));
   }
 
@@ -225,12 +208,7 @@
         hovertemplate: "%{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
       };
     });
-    Plotly.newPlot(
-      "monthly-trends-chart",
-      traces,
-      { ...baseLayout(""), margin: { l: 34, r: 16, t: 16, b: 30 } },
-      { responsive: true }
-    );
+    Plotly.newPlot("monthly-trends-chart", traces, { ...baseLayout(""), margin: { l: 34, r: 16, t: 16, b: 30 } }, { responsive: true });
     bindPlotClick("monthly-trends-chart", (point) => {
       setFilter("year", point.customdata[0], false);
       setFilter("month", point.customdata[1], true);
@@ -238,47 +216,31 @@
   }
 
   function renderCategoryYoy() {
-    const rows = buildCategoryYoyRows().slice(0, 8);
-    Plotly.newPlot(
-      "category-yoy-chart",
-      [{
-        x: rows.map((row) => row.label),
-        y: rows.map((row) => toThousands(row.delta_amount)),
-        type: "bar",
-        marker: {
-          color: rows.map((row) => row.delta_amount >= 0 ? "#16a34a" : "#f59e0b"),
-        },
-        customdata: rows.map((row) => [row.id]),
-        text: rows.map((row) => formatSignedThousands(row.delta_amount)),
-        textposition: "outside",
-        hovertemplate: "%{x}<br>Δ %{y:,.2f} тыс. руб.<extra></extra>",
-      }],
-      { ...baseLayout(""), margin: { l: 34, r: 12, t: 20, b: 90 }, xaxis: { tickangle: -24 } },
-      { responsive: true }
-    );
+    const rows = (payload.category_yoy || []).slice(0, 8);
+    Plotly.newPlot("category-yoy-chart", [{
+      x: rows.map((row) => row.label),
+      y: rows.map((row) => toThousands(row.delta_amount)),
+      type: "bar",
+      marker: { color: rows.map((row) => Number(row.delta_amount || 0) >= 0 ? "#16a34a" : "#f59e0b") },
+      customdata: rows.map((row) => [row.id]),
+      text: rows.map((row) => formatSignedThousands(row.delta_amount)),
+      textposition: "outside",
+      hovertemplate: "%{x}<br>Δ %{y:,.2f} тыс. руб.<extra></extra>",
+    }], { ...baseLayout(""), margin: { l: 34, r: 12, t: 20, b: 90 }, xaxis: { tickangle: -24 } }, { responsive: true });
     bindPlotClick("category-yoy-chart", (point) => setFilter("l1_category_id", point.customdata[0]));
   }
 
   function renderEntityBar(containerId, rows, prefix) {
     const topRows = rows.slice(0, 10);
-    Plotly.newPlot(
-      containerId,
-      [{
-        x: topRows.map((row) => toThousands(row.total_amount)),
-        y: topRows.map((row) => row.label),
-        type: "bar",
-        orientation: "h",
-        marker: { color: prefix === "vendor" ? "#2e62ff" : "#18b5d8" },
-        customdata: topRows.map((row) => [row.id]),
-        hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
-      }],
-      {
-        ...baseLayout(""),
-        margin: { l: 170, r: 16, t: 8, b: 24 },
-        xaxis: amountAxisTemplate,
-      },
-      { responsive: true }
-    );
+    Plotly.newPlot(containerId, [{
+      x: topRows.map((row) => toThousands(row.total_amount)),
+      y: topRows.map((row) => row.label),
+      type: "bar",
+      orientation: "h",
+      marker: { color: prefix === "vendor" ? "#2e62ff" : "#18b5d8" },
+      customdata: topRows.map((row) => [row.id]),
+      hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
+    }], { ...baseLayout(""), margin: { l: 170, r: 16, t: 8, b: 24 }, xaxis: amountAxisTemplate }, { responsive: true });
     bindPlotClick(containerId, (point) => {
       if (prefix === "vendor") setFilter("vendor_id", point.customdata[0]);
       if (prefix === "organization") setFilter("organization_id", point.customdata[0]);
@@ -286,24 +248,15 @@
   }
 
   function renderDepartments() {
-    const rows = aggregateBy(detailRows, "department_name");
-    Plotly.newPlot(
-      "departments-chart",
-      [{
-        x: rows.map((row) => toThousands(row.total_amount)),
-        y: rows.map((row) => row.label),
-        type: "bar",
-        orientation: "h",
-        marker: { color: "#7aa8ff" },
-        hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
-      }],
-      {
-        ...baseLayout(""),
-        margin: { l: 170, r: 16, t: 8, b: 24 },
-        xaxis: amountAxisTemplate,
-      },
-      { responsive: true }
-    );
+    const rows = payload.departments || [];
+    Plotly.newPlot("departments-chart", [{
+      x: rows.slice(0, 10).map((row) => toThousands(row.total_amount)),
+      y: rows.slice(0, 10).map((row) => row.label),
+      type: "bar",
+      orientation: "h",
+      marker: { color: "#7aa8ff" },
+      hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
+    }], { ...baseLayout(""), margin: { l: 170, r: 16, t: 8, b: 24 }, xaxis: amountAxisTemplate }, { responsive: true });
   }
 
   function bindControls() {
@@ -320,12 +273,22 @@
     byId("detail-search")?.addEventListener("input", (event) => {
       state.search = String(event.target.value || "").toLowerCase();
       state.page = 1;
-      renderDetailTable();
+      loadDetailTable();
     });
     byId("detail-reset")?.addEventListener("click", () => resetAllFilters());
     byId("detail-export")?.addEventListener("click", exportCurrentSelectionToCsv);
     document.querySelectorAll("[data-sort-key]").forEach((header) => {
       header.addEventListener("click", () => toggleSort(header.dataset.sortKey));
+    });
+  }
+
+  function bindModalControls() {
+    byId("detail-modal-close")?.addEventListener("click", closeDetailModal);
+    byId("detail-modal")?.addEventListener("click", (event) => {
+      if (event.target?.id === "detail-modal") closeDetailModal();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDetailModal();
     });
   }
 
@@ -352,7 +315,8 @@
   function rerenderAll() {
     renderActiveFilters();
     renderBreadcrumb();
-    renderDetailTable();
+    loadVendorDrilldown();
+    loadDetailTable();
   }
 
   function applyCategoryPath(path) {
@@ -388,9 +352,7 @@
     if (filters.vendor_name) setFilter("vendor_id", slug(filters.vendor_name), false);
     if (filters.organization_name) setFilter("organization_id", slug(filters.organization_name), false);
     if (filters.l1_category) setFilter("l1_category_id", slug(filters.l1_category), false);
-    if (filters.year && Array.isArray(filters.year) && filters.year.length) {
-      setFilter("year", String(filters.year[filters.year.length - 1]), false);
-    }
+    if (filters.year && Array.isArray(filters.year) && filters.year.length) setFilter("year", String(filters.year[filters.year.length - 1]), false);
     state.page = 1;
     syncSelectValues();
     rerenderAll();
@@ -459,24 +421,131 @@
     });
   }
 
+  async function loadDetailTable() {
+    const params = buildQueryParams();
+    const response = await fetch(`${apiBaseUrl}/details?${params.toString()}`);
+    if (!response.ok) return;
+    const payload = await response.json();
+    state.tableRows = payload.rows || [];
+    state.totalRows = Number(payload.total_rows || 0);
+    state.totalPages = Number(payload.total_pages || 1);
+    renderDetailTable();
+  }
+
+  async function loadVendorDrilldown() {
+    const params = new URLSearchParams();
+    if (state.filters.year) params.set("year", state.filters.year);
+    if (state.filters.status_group) params.set("status_group", state.filters.status_group);
+    if (state.filters.l1_category_id) params.set("l1_category_id", state.filters.l1_category_id);
+    if (state.filters.l2_category_id) params.set("l2_category_id", state.filters.l2_category_id);
+    if (state.filters.l3_category_id) params.set("l3_category_id", state.filters.l3_category_id);
+    if (state.filters.organization_id) params.set("organization_id", state.filters.organization_id);
+    if (state.filters.classification_confidence) params.set("classification_confidence", state.filters.classification_confidence);
+    if (state.vendorDrilldown.selectedVendorId) params.set("selected_vendor_id", state.vendorDrilldown.selectedVendorId);
+    if (state.vendorDrilldown.selectedMonth) params.set("selected_month", state.vendorDrilldown.selectedMonth);
+    const response = await fetch(`${apiBaseUrl}/vendor-drilldown?${params.toString()}`);
+    if (!response.ok) return;
+    const drilldown = await response.json();
+    state.vendorDrilldown.selectedVendorId = String(drilldown.selected_vendor_id || "");
+    state.vendorDrilldown.selectedMonth = String(drilldown.selected_month || "");
+    renderVendorDrilldown(drilldown);
+  }
+
+  function renderVendorDrilldown(drilldown) {
+    const stateNode = byId("vendor-drilldown-state");
+    if (stateNode) {
+      if (drilldown.selected_vendor_label) {
+        const monthLabel = drilldown.selected_month ? String(drilldown.selected_month).padStart(2, "0") : "все месяцы";
+        stateNode.textContent = `Год: ${drilldown.selected_year || "—"} · Поставщик: ${drilldown.selected_vendor_label} · Месяц: ${monthLabel}`;
+      } else {
+        stateNode.textContent = "Нет данных для построения vendor drill-down в текущем срезе.";
+      }
+    }
+
+    renderVendorAnnualChart(drilldown.top_vendors || [], drilldown.selected_vendor_id || "");
+    renderVendorMonthlyChart(drilldown.vendor_monthly || [], drilldown.selected_month || "");
+    renderVendorComponentsChart(drilldown.month_components || []);
+  }
+
+  function renderVendorAnnualChart(rows, selectedVendorId) {
+    const colors = rows.map((row) => row.id === selectedVendorId ? "#2e62ff" : "#a8c0ff");
+    Plotly.newPlot("vendors-top-chart", [{
+      x: rows.map((row) => row.label),
+      y: rows.map((row) => toThousands(row.total_amount)),
+      type: "bar",
+      marker: { color: colors },
+      customdata: rows.map((row) => [row.id]),
+      text: rows.map((row) => formatAmountThousands(row.total_amount)),
+      textposition: "outside",
+      hovertemplate: "%{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
+    }], {
+      ...baseLayout(""),
+      margin: { l: 32, r: 16, t: 10, b: 110 },
+      xaxis: { tickangle: -28, automargin: true, color: "#5f6b7a" },
+      yaxis: amountAxisTemplate,
+      showlegend: false,
+    }, { responsive: true });
+    bindPlotClick("vendors-top-chart", (point) => {
+      state.vendorDrilldown.selectedVendorId = point.customdata[0];
+      state.vendorDrilldown.selectedMonth = "";
+      loadVendorDrilldown();
+    });
+  }
+
+  function renderVendorMonthlyChart(rows, selectedMonth) {
+    const colors = rows.map((row) => String(row.month) === String(selectedMonth) ? "#2e62ff" : "#8bb8ff");
+    Plotly.newPlot("vendor-monthly-chart", [{
+      x: rows.map((row) => row.year_month || String(row.month).padStart(2, "0")),
+      y: rows.map((row) => toThousands(row.total_amount)),
+      type: "bar",
+      marker: { color: colors },
+      customdata: rows.map((row) => [String(row.month)]),
+      text: rows.map((row) => formatAmountThousands(row.total_amount)),
+      textposition: "outside",
+      hovertemplate: "%{x}<br>Сумма %{y:,.2f} тыс. руб.<extra></extra>",
+    }], {
+      ...baseLayout(""),
+      margin: { l: 32, r: 16, t: 10, b: 48 },
+      showlegend: false,
+    }, { responsive: true });
+    bindPlotClick("vendor-monthly-chart", (point) => {
+      state.vendorDrilldown.selectedMonth = point.customdata[0];
+      loadVendorDrilldown();
+    });
+  }
+
+  function renderVendorComponentsChart(rows) {
+    Plotly.newPlot("vendor-components-chart", [{
+      x: rows.map((row) => toThousands(row.total_amount)),
+      y: rows.map((row) => row.label),
+      type: "bar",
+      orientation: "h",
+      marker: { color: "#18b5d8" },
+      text: rows.map((row) => formatAmountThousands(row.total_amount)),
+      textposition: "outside",
+      hovertemplate: "%{y}<br>Сумма %{x:,.2f} тыс. руб.<extra></extra>",
+    }], {
+      ...baseLayout(""),
+      margin: { l: 210, r: 16, t: 10, b: 24 },
+      xaxis: amountAxisTemplate,
+      showlegend: false,
+    }, { responsive: true });
+  }
+
   function renderDetailTable() {
-    const rows = getFilteredRows();
-    const totalPages = Math.max(1, Math.ceil(rows.length / state.pageSize));
-    if (state.page > totalPages) state.page = totalPages;
-    const pagedRows = rows.slice((state.page - 1) * state.pageSize, state.page * state.pageSize);
     const body = byId("detail-table-body");
     const summary = byId("detail-table-summary");
     if (!body || !summary) return;
-    summary.textContent = `Показано ${pagedRows.length} из ${rows.length} строк`;
-    if (!pagedRows.length) {
+    summary.textContent = `Показано ${state.tableRows.length} из ${state.totalRows} строк`;
+    if (!state.tableRows.length) {
       body.innerHTML = '<tr><td colspan="9" class="empty-state">Нет строк под выбранные фильтры</td></tr>';
     } else {
-      body.innerHTML = pagedRows.map((row) => `
+      body.innerHTML = state.tableRows.map((row) => `
         <tr data-detail-row-id="${escAttr(row.detail_row_id)}">
           <td>${esc(row.period_date)}</td>
           <td>${esc(row.vendor_label)}</td>
           <td>${esc(row.organization_label)}</td>
-          <td>${esc(row.expense_subject || row.article_name)}</td>
+          <td>${esc(row.expense_subject || row.article_name)}${Number(row.source_line_count || 1) > 1 ? ` <span class="badge">источников: ${Number(row.source_line_count)}</span>` : ""}</td>
           <td>${esc(row.project_name)}</td>
           <td>${esc(row.classification_confidence)}</td>
           <td class="detail-reason-cell">${esc(row.classification_reason_human)}</td>
@@ -488,14 +557,14 @@
         node.addEventListener("click", () => openDetailModal(node.dataset.detailRowId));
       });
     }
-    renderPagination(rows.length, totalPages);
+    renderPagination();
   }
 
-  function renderPagination(totalRows, totalPages) {
+  function renderPagination() {
     const markup = `
       <button type="button" data-page-action="prev" ${state.page <= 1 ? "disabled" : ""}>Назад</button>
-      <span class="pagination-info">Страница ${state.page} из ${totalPages}, строк: ${totalRows}</span>
-      <button type="button" data-page-action="next" ${state.page >= totalPages ? "disabled" : ""}>Вперед</button>
+      <span class="pagination-info">Страница ${state.page} из ${state.totalPages}, строк: ${state.totalRows}</span>
+      <button type="button" data-page-action="next" ${state.page >= state.totalPages ? "disabled" : ""}>Вперед</button>
     `;
     ["detail-pagination-top", "detail-pagination-bottom"].forEach((id) => {
       const node = byId(id);
@@ -504,52 +573,92 @@
       node.querySelectorAll("[data-page-action]").forEach((button) => {
         button.addEventListener("click", () => {
           if (button.dataset.pageAction === "prev" && state.page > 1) state.page -= 1;
-          if (button.dataset.pageAction === "next" && state.page < totalPages) state.page += 1;
-          renderDetailTable();
+          if (button.dataset.pageAction === "next" && state.page < state.totalPages) state.page += 1;
+          loadDetailTable();
         });
       });
     });
   }
 
-  function getFilteredRows() {
-    const filtered = detailRows.filter((row) => {
-      if (state.filters.year && String(row.year) !== state.filters.year) return false;
-      if (state.filters.month && String(row.month) !== state.filters.month) return false;
-      if (state.filters.status_group && row.status_group !== state.filters.status_group) return false;
-      if (state.filters.l1_category_id && row.l1_category_id !== state.filters.l1_category_id) return false;
-      if (state.filters.l2_category_id && row.l2_category_id !== state.filters.l2_category_id) return false;
-      if (state.filters.l3_category_id && row.l3_category_id !== state.filters.l3_category_id) return false;
-      if (state.filters.vendor_id && row.vendor_id !== state.filters.vendor_id) return false;
-      if (state.filters.organization_id && row.organization_id !== state.filters.organization_id) return false;
-      if (state.filters.classification_confidence && row.classification_confidence !== state.filters.classification_confidence) return false;
-      if (state.search) {
-        const haystack = [
-          row.vendor_label,
-          row.organization_label,
-          row.expense_subject,
-          row.article_name,
-          row.contract_name,
-          row.project_name,
-          row.department_name,
-          row.l1_category_label,
-          row.l2_category_label,
-          row.l3_category_label,
-          row.classification_reason_human,
-        ].join(" ").toLowerCase();
-        if (!haystack.includes(state.search)) return false;
-      }
-      return true;
-    });
-    return filtered.sort((left, right) => compareRows(left, right));
+  async function openDetailModal(detailRowId) {
+    const response = await fetch(`${apiBaseUrl}/rows/${encodeURIComponent(detailRowId)}`);
+    if (!response.ok) return;
+    const details = await response.json();
+    setText("detail-modal-title", `Позиция ${detailRowId}`);
+    const summary = details.summary || {};
+    setText(
+      "detail-modal-summary",
+      `${summary.period_date || ""} · ${summary.vendor_name || ""} · ${formatAmountThousands(summary.amount || 0)} · статус: ${statusLabel(summary.status_group || "")} · исходных строк: ${summary.source_line_count || 1}`
+    );
+    renderKeyValueGrid("detail-modal-pipeline", details.pipeline_attributes || {});
+    renderLineCollection("detail-modal-raw", details.raw_lines || [], details.raw_attributes || {});
+    renderTransformations("detail-modal-transformations", details.transformations || []);
+    byId("detail-modal")?.classList.remove("hidden");
+    byId("detail-modal")?.setAttribute("aria-hidden", "false");
   }
 
-  function compareRows(left, right) {
-    const key = state.sortKey;
-    const direction = state.sortDirection === "asc" ? 1 : -1;
-    const a = left[key];
-    const b = right[key];
-    if (typeof a === "number" && typeof b === "number") return (a - b) * direction;
-    return String(a || "").localeCompare(String(b || ""), "ru") * direction;
+  function closeDetailModal() {
+    byId("detail-modal")?.classList.add("hidden");
+    byId("detail-modal")?.setAttribute("aria-hidden", "true");
+  }
+
+  function renderTransformations(containerId, transformations) {
+    const node = byId(containerId);
+    if (!node) return;
+    if (!transformations.length) {
+      node.innerHTML = '<div class="section-caption">Изменений по правилам очистки и нормализации не зафиксировано.</div>';
+      return;
+    }
+    node.innerHTML = `<div class="transformation-list">${transformations.map((item) => `
+      <div class="transformation-item">
+        <div class="transformation-rule">
+          <span class="badge">${esc(item.rule_label)}</span>
+          <span class="transformation-field">${esc(item.field)}</span>
+        </div>
+        <div class="transformation-values">
+          <div class="transformation-before"><strong>Было:</strong> ${esc(item.before || "∅")}</div>
+          <div class="transformation-after"><strong>Стало:</strong> ${esc(item.after || "∅")}</div>
+        </div>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function renderKeyValueGrid(containerId, values) {
+    const node = byId(containerId);
+    if (!node) return;
+    const entries = Object.entries(values || {});
+    if (!entries.length) {
+      node.innerHTML = '<div class="section-caption">Нет данных для отображения.</div>';
+      return;
+    }
+    node.innerHTML = entries.map(([key, value]) => `
+      <div class="attr-item">
+        <div class="attr-key">${esc(key)}</div>
+        <div class="attr-value">${esc(value)}</div>
+      </div>
+    `).join("");
+  }
+
+  function renderLineCollection(containerId, lines, fallbackValues) {
+    const node = byId(containerId);
+    if (!node) return;
+    if (Array.isArray(lines) && lines.length > 1) {
+      node.innerHTML = lines.map((line, index) => `
+        <div class="source-line-card">
+          <div class="source-line-title">Исходная строка ${index + 1}</div>
+          <div class="attr-grid attr-grid-raw">
+            ${Object.entries(line || {}).map(([key, value]) => `
+              <div class="attr-item">
+                <div class="attr-key">${esc(key)}</div>
+                <div class="attr-value">${esc(value)}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+      return;
+    }
+    renderKeyValueGrid(containerId, fallbackValues || (lines && lines[0]) || {});
   }
 
   function removeFilter(field) {
@@ -591,54 +700,27 @@
       state.sortKey = key;
       state.sortDirection = key === "amount" ? "desc" : "asc";
     }
-    renderDetailTable();
+    loadDetailTable();
   }
 
   function exportCurrentSelectionToCsv() {
-    const rows = getFilteredRows();
-    const columns = ["period_date", "vendor_label", "organization_label", "expense_subject", "project_name", "classification_confidence", "classification_reason_human", "status_group", "amount"];
-    const csv = [columns.join(",")].concat(
-      rows.map((row) => columns.map((column) => {
-        if (column === "amount") return csvCell(formatAmountThousands(row[column]));
-        if (column === "status_group") return csvCell(statusLabel(row[column]));
-        return csvCell(row[column]);
-      }).join(","))
-    ).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "dashboard_selection.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    const url = `${apiBaseUrl}/export.csv?${buildQueryParams(false).toString()}`;
+    window.open(url, "_blank");
   }
 
-  function buildCategoryYoyRows() {
-    const years = [...new Set(detailRows.map((row) => Number(row.year)).filter((value) => !Number.isNaN(value)))].sort();
-    const leftYear = years[0];
-    const rightYear = years[years.length - 1];
-    const grouped = new Map();
-    detailRows.forEach((row) => {
-      const key = row.l1_category_label || "Прочее";
-      if (!grouped.has(key)) grouped.set(key, { label: key, id: row.l1_category_id, amounts: {} });
-      const item = grouped.get(key);
-      item.amounts[row.year] = (item.amounts[row.year] || 0) + Number(row.amount || 0);
+  function buildQueryParams(includePaging = true) {
+    const params = new URLSearchParams();
+    Object.entries(state.filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
     });
-    return [...grouped.values()].map((item) => {
-      const prev = Number(item.amounts[leftYear] || 0);
-      const next = Number(item.amounts[rightYear] || 0);
-      const delta = next - prev;
-      return {
-        label: item.label,
-        id: item.id,
-        left_year: leftYear,
-        right_year: rightYear,
-        previous_amount: prev,
-        current_amount: next,
-        delta_amount: delta,
-        delta_share: prev ? delta / prev : 1,
-      };
-    }).sort((a, b) => Math.abs(b.delta_amount) - Math.abs(a.delta_amount));
+    if (state.search) params.set("search", state.search);
+    params.set("sort_key", state.sortKey);
+    params.set("sort_direction", state.sortDirection);
+    if (includePaging) {
+      params.set("page", String(state.page));
+      params.set("page_size", String(state.pageSize));
+    }
+    return params;
   }
 
   function flattenTree(nodes) {
@@ -658,30 +740,7 @@
   }
 
   function flattenL1Categories(nodes) {
-    return (nodes || [])
-      .map((node) => ({ id: node.id, label: node.label, total_amount: Number(node.total_amount || 0) }))
-      .sort((a, b) => b.total_amount - a.total_amount);
-  }
-
-  function groupAmounts(rows, field) {
-    const grouped = {};
-    rows.forEach((row) => {
-      const key = String(row[field] || "");
-      if (!key) return;
-      if (!grouped[key]) grouped[key] = { key, label: key, total_amount: 0 };
-      grouped[key].total_amount += Number(row.amount || 0);
-    });
-    return Object.values(grouped).sort((a, b) => b.total_amount - a.total_amount);
-  }
-
-  function aggregateBy(rows, field) {
-    const grouped = {};
-    rows.forEach((row) => {
-      const label = String(row[field] || "unknown");
-      if (!grouped[label]) grouped[label] = { label, total_amount: 0 };
-      grouped[label].total_amount += Number(row.amount || 0);
-    });
-    return Object.values(grouped).sort((a, b) => b.total_amount - a.total_amount).slice(0, 10);
+    return (nodes || []).map((node) => ({ id: node.id, label: node.label, total_amount: Number(node.total_amount || 0) })).sort((a, b) => b.total_amount - a.total_amount);
   }
 
   function findLabel(options, id) {
@@ -712,93 +771,14 @@
     return statusLabels[value] || value;
   }
 
-  function bindModalControls() {
-    byId("detail-modal-close")?.addEventListener("click", closeDetailModal);
-    byId("detail-modal")?.addEventListener("click", (event) => {
-      if (event.target?.id === "detail-modal") closeDetailModal();
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeDetailModal();
-    });
-  }
-
-  function openDetailModal(detailRowId) {
-    const row = detailRows.find((item) => item.detail_row_id === detailRowId);
-    const details = detailRowDetails[detailRowId];
-    if (!row || !details) return;
-
-    setText("detail-modal-title", `Строка ${row.detail_row_id}`);
-    setText(
-      "detail-modal-summary",
-      `${row.period_date} · ${row.vendor_label} · ${formatAmountThousands(row.amount)} · статус: ${statusLabel(row.status_group)}`
-    );
-    renderKeyValueGrid("detail-modal-pipeline", details.pipeline_attributes || {});
-    renderRawAttributes("detail-modal-raw", details.raw_attributes || {});
-    renderTransformations("detail-modal-transformations", details.transformations || []);
-    byId("detail-modal")?.classList.remove("hidden");
-    byId("detail-modal")?.setAttribute("aria-hidden", "false");
-  }
-
-  function closeDetailModal() {
-    byId("detail-modal")?.classList.add("hidden");
-    byId("detail-modal")?.setAttribute("aria-hidden", "true");
-  }
-
-  function renderTransformations(containerId, transformations) {
-    const node = byId(containerId);
-    if (!node) return;
-    if (!transformations.length) {
-      node.innerHTML = '<div class="section-caption">Изменений по правилам очистки и нормализации не зафиксировано.</div>';
-      return;
-    }
-    node.innerHTML = `<div class="transformation-list">${transformations.map((item) => `
-      <div class="transformation-item">
-        <div class="transformation-rule">
-          <span class="badge">${esc(item.rule_label)}</span>
-          <span class="transformation-field">${esc(item.field)}</span>
-        </div>
-        <div class="transformation-values">
-          <div class="transformation-before"><strong>Было:</strong> ${esc(item.before || "∅")}</div>
-          <div class="transformation-after"><strong>Стало:</strong> ${esc(item.after || "∅")}</div>
-        </div>
-      </div>
-    `).join("")}</div>`;
-  }
-
-  function renderKeyValueGrid(containerId, values) {
-    const node = byId(containerId);
-    if (!node) return;
-    const entries = Object.entries(values || {});
-    if (!entries.length) {
-      node.innerHTML = '<div class="section-caption">Нет итоговых атрибутов для отображения.</div>';
-      return;
-    }
-    node.innerHTML = entries.map(([key, value]) => `
-      <div class="attr-item">
-        <div class="attr-key">${esc(key)}</div>
-        <div class="attr-value">${esc(value)}</div>
-      </div>
-    `).join("");
-  }
-
-  function renderRawAttributes(containerId, values) {
-    renderKeyValueGrid(containerId, values);
-  }
-
   function slug(value) {
     const rawValue = String(value || "").trim().toLowerCase();
     const transliterated = Array.from(rawValue).map((char) => cyrillicToLatin[char] ?? char).join("");
-    const normalized = transliterated
+    return transliterated
       .normalize("NFKD")
       .replace(/[^\w\s-]/g, "")
       .replace(/[^0-9a-z]+/g, "_")
-      .replace(/^_+|_+$/g, "");
-    if (normalized) return normalized;
-    const fallback = Array.from(rawValue)
-      .filter((char) => !/\s/.test(char))
-      .map((char) => char.codePointAt(0).toString(16))
-      .join("_");
-    return fallback ? `u_${fallback}` : "unknown";
+      .replace(/^_+|_+$/g, "") || "unknown";
   }
 
   function formatKpiValue(kpi) {
@@ -812,18 +792,11 @@
   }
 
   function formatThousandsNumber(value) {
-    return new Intl.NumberFormat("ru-RU", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(value || 0));
+    return new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
   }
 
   function formatPercent(value) {
-    return new Intl.NumberFormat("ru-RU", {
-      style: "percent",
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }).format(Number(value || 0));
+    return new Intl.NumberFormat("ru-RU", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(value || 0));
   }
 
   function formatSignedThousands(value) {
@@ -838,10 +811,6 @@
   function setText(id, value) {
     const node = byId(id);
     if (node) node.textContent = value || "";
-  }
-
-  function csvCell(value) {
-    return `"${String(value == null ? "" : value).replace(/"/g, '""')}"`;
   }
 
   function esc(value) {

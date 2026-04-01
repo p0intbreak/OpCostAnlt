@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import hashlib
-
 import pandas as pd
+
+from it_spend_dashboard.modeling.grain import collapse_to_position_grain
 
 
 def build_payments_fact(dataframe: pd.DataFrame) -> pd.DataFrame:
-    """Build the canonical payments fact table at one row per payment operation."""
-    fact = dataframe.copy()
-    fact["payment_id"] = _build_payment_ids(fact)
+    """Build the canonical payments fact table at one row per payment position."""
+    fact = collapse_to_position_grain(dataframe)
+    fact["payment_id"] = fact["payment_position_id"]
     fact["period_date"] = pd.to_datetime(fact.get("period"), errors="coerce")
     fact["year"] = _prefer_column(fact, "year", fact["period_date"].dt.year).astype("Int64")
     fact["month"] = _prefer_column(fact, "month", fact["period_date"].dt.month).astype("Int64")
@@ -37,6 +37,12 @@ def build_payments_fact(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     ordered_columns = [
         "payment_id",
+        "payment_document_id",
+        "payment_position_id",
+        "payment_source_line_id",
+        "source_line_count",
+        "source_line_unique_count",
+        "has_source_duplicates",
         "period_date",
         "year",
         "month",
@@ -64,26 +70,6 @@ def build_payments_fact(dataframe: pd.DataFrame) -> pd.DataFrame:
     return fact.loc[:, ordered_columns]
 
 
-def _build_payment_ids(dataframe: pd.DataFrame) -> pd.Series:
-    """Build a deterministic technical key for each payment row."""
-    key_columns = [
-        "period",
-        "summa",
-        "bit_stati_oborotov_naimenovanie",
-        "kontragenti_naimenovanie",
-        "dogovori_kontragentov_naimenovanie",
-        "proekti_naimenovanie",
-        "podrazdeleniya_naimenovanie",
-        "organizacii_naimenovanie",
-    ]
-
-    def make_digest(row: pd.Series) -> str:
-        payload = "|".join(_stringify(row.get(column, "")) for column in key_columns)
-        return hashlib.md5(payload.encode("utf-8")).hexdigest()
-
-    return dataframe.apply(make_digest, axis=1)
-
-
 def _prefer_column(dataframe: pd.DataFrame, column: str, fallback: pd.Series) -> pd.Series:
     """Use an existing column when available, otherwise a fallback series."""
     if column in dataframe.columns:
@@ -96,10 +82,3 @@ def _series_or_default(dataframe: pd.DataFrame, column: str, default: str = "") 
     if column in dataframe.columns:
         return dataframe[column].astype("string").fillna(default)
     return pd.Series([default] * len(dataframe), index=dataframe.index, dtype="string")
-
-
-def _stringify(value: object) -> str:
-    """Convert nullable values into stable key fragments."""
-    if pd.isna(value):
-        return ""
-    return str(value).strip()

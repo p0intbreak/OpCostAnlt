@@ -1,4 +1,4 @@
-"""Command-line interface for the IT spend analytics pipeline."""
+"""Command-line interface for the IT spend analytics pipeline and backend dashboard."""
 
 from __future__ import annotations
 
@@ -9,9 +9,11 @@ from pathlib import Path
 import sys
 
 import pandas as pd
+import uvicorn
 
-from it_spend_dashboard.cleaning.pipeline import run_cleaning_pipeline
+from it_spend_dashboard.api.app import create_app
 from it_spend_dashboard.classification.pipeline import run_classification_pipeline
+from it_spend_dashboard.cleaning.pipeline import run_cleaning_pipeline
 from it_spend_dashboard.dashboard.html_builder import build_dashboard_html
 from it_spend_dashboard.dashboard.payload_builder import save_dashboard_payload
 from it_spend_dashboard.ingestion.load_csv import build_dataframe_profile, load_payments_csv
@@ -61,17 +63,23 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--project-root", type=Path, default=Path.cwd(), help="Корень проекта с data/config.")
     run_parser.set_defaults(handler=handle_run_pipeline)
 
-    build_parser_cmd = subparsers.add_parser("build-dashboard", help="Собрать dashboard_payload.json из facts.")
+    build_parser_cmd = subparsers.add_parser("build-dashboard", help="Собрать compact dashboard_payload.json из facts.")
     build_parser_cmd.add_argument("--input", type=Path, help="Путь до payments_fact.parquet.")
     build_parser_cmd.add_argument("--output", type=Path, help="Путь до dashboard_payload.json.")
     build_parser_cmd.add_argument("--project-root", type=Path, default=Path.cwd(), help="Корень проекта с data/.")
     build_parser_cmd.set_defaults(handler=handle_build_dashboard)
 
-    export_parser = subparsers.add_parser("export-html", help="Собрать итоговый dashboard.html.")
+    export_parser = subparsers.add_parser("export-html", help="Собрать HTML shell для backend-backed дашборда.")
     export_parser.add_argument("--input", type=Path, help="Путь до payments_fact.parquet.")
     export_parser.add_argument("--output", type=Path, help="Путь до dashboard.html.")
     export_parser.add_argument("--project-root", type=Path, default=Path.cwd(), help="Корень проекта с data/.")
     export_parser.set_defaults(handler=handle_export_html)
+
+    serve_parser = subparsers.add_parser("serve-dashboard", help="Запустить FastAPI backend для дашборда.")
+    serve_parser.add_argument("--project-root", type=Path, default=Path.cwd(), help="Корень проекта с data/.")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Host для uvicorn.")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port для uvicorn.")
+    serve_parser.set_defaults(handler=handle_serve_dashboard)
     return parser
 
 
@@ -104,17 +112,10 @@ def handle_run_pipeline(args: argparse.Namespace) -> int:
 
     LOGGER.info("Старт пайплайна для файла: %s", input_path)
     LOGGER.info("Шаг 1/7: ingestion")
-    ingested = run_ingestion_pipeline(
-        csv_path=input_path,
-        output_path=interim_dir / "payments_ingested.parquet",
-    )
+    ingested = run_ingestion_pipeline(csv_path=input_path, output_path=interim_dir / "payments_ingested.parquet")
 
     LOGGER.info("Шаг 2/7: cleaning")
-    cleaned = run_cleaning_pipeline(
-        ingested,
-        output_path=interim_dir / "payments_clean.parquet",
-        config_dir=config_dir,
-    )
+    cleaned = run_cleaning_pipeline(ingested, output_path=interim_dir / "payments_clean.parquet", config_dir=config_dir)
 
     LOGGER.info("Шаг 3/7: classification")
     classified = run_classification_pipeline(cleaned, config_dir=config_dir)
@@ -128,17 +129,10 @@ def handle_run_pipeline(args: argparse.Namespace) -> int:
     insights = run_insights_pipeline(payments_fact, export_dir=export_dir)
 
     LOGGER.info("Шаг 6/7: payload building")
-    payload_path = save_dashboard_payload(
-        payments_fact,
-        output_path=export_dir / "dashboard_payload.json",
-        insights=insights,
-    )
+    payload_path = save_dashboard_payload(payments_fact, output_path=export_dir / "dashboard_payload.json", insights=insights)
 
     LOGGER.info("Шаг 7/7: html export")
-    html_path = build_dashboard_html(
-        payments_fact,
-        output_path=export_dir / "dashboard.html",
-    )
+    html_path = build_dashboard_html(payments_fact, output_path=export_dir / "dashboard.html")
     qa_report = build_qa_report(payments_fact, output_path=export_dir / "qa_report.json")
 
     LOGGER.info("Пайплайн завершен успешно.")
@@ -149,13 +143,13 @@ def handle_run_pipeline(args: argparse.Namespace) -> int:
 
 
 def handle_build_dashboard(args: argparse.Namespace) -> int:
-    """Build the dashboard JSON payload from processed facts."""
+    """Build the dashboard summary payload from processed facts."""
     project_root = args.project_root.resolve()
     fact_path = args.input.resolve() if args.input else project_root / "data" / "processed" / "payments_fact.parquet"
     output_path = args.output.resolve() if args.output else project_root / "data" / "export" / "dashboard_payload.json"
     _resolve_existing_path(fact_path)
 
-    LOGGER.info("Сборка dashboard payload из %s", fact_path)
+    LOGGER.info("Сборка dashboard summary payload из %s", fact_path)
     payments_fact = pd.read_parquet(fact_path)
     insights = run_insights_pipeline(payments_fact, export_dir=output_path.parent)
     saved_path = save_dashboard_payload(payments_fact, output_path=output_path, insights=insights)
@@ -164,7 +158,7 @@ def handle_build_dashboard(args: argparse.Namespace) -> int:
 
 
 def handle_export_html(args: argparse.Namespace) -> int:
-    """Render the interactive HTML dashboard from processed facts."""
+    """Render the backend-backed HTML dashboard shell from processed facts."""
     project_root = args.project_root.resolve()
     fact_path = args.input.resolve() if args.input else project_root / "data" / "processed" / "payments_fact.parquet"
     output_path = args.output.resolve() if args.output else project_root / "data" / "export" / "dashboard.html"
@@ -174,6 +168,15 @@ def handle_export_html(args: argparse.Namespace) -> int:
     payments_fact = pd.read_parquet(fact_path)
     saved_path = build_dashboard_html(payments_fact, output_path=output_path)
     LOGGER.info("HTML сохранен: %s", saved_path)
+    return 0
+
+
+def handle_serve_dashboard(args: argparse.Namespace) -> int:
+    """Run the FastAPI backend for the dashboard."""
+    project_root = args.project_root.resolve()
+    app = create_app(project_root)
+    LOGGER.info("Запуск backend дашборда: http://%s:%s", args.host, args.port)
+    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     return 0
 
 

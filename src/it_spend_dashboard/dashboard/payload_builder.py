@@ -1,4 +1,4 @@
-"""Build a frontend-friendly JSON payload for the interactive HTML dashboard."""
+"""Build a compact frontend-friendly payload for the dashboard summary view."""
 
 from __future__ import annotations
 
@@ -25,38 +25,16 @@ STATUS_LABELS = {
     "other": "Прочее",
 }
 
-AMOUNT_FIELDS = ["summa", "summa_regl", "summa_upr", "summa_vzaimorascheti"]
-DATE_FIELDS = [
-    "period",
-    "quarter_period",
-    "bit_zayavka_na_rashodovanie_sredstv_data",
-    "bit_platezhnaya_poziciya_data",
-]
-TEXT_FIELDS = [
-    "bit_stati_oborotov_naimenovanie",
-    "naznachenie_platezha",
-    "kontragenti_naimenovanie",
-    "dogovori_kontragentov_naimenovanie",
-]
-ENTITY_FIELDS = [
-    "organizacii_naimenovanie",
-    "podrazdeleniya_naimenovanie",
-    "proekti_naimenovanie",
-    "kontragenti_naimenovanie",
-]
-
 
 def build_dashboard_payload(
     payments_fact: pd.DataFrame,
     *,
     insights: list[dict[str, object]] | None = None,
 ) -> dict[str, Any]:
-    """Build a single frontend-oriented dashboard payload."""
+    """Build a compact summary payload for the dashboard frontend."""
     fact = build_payments_fact(payments_fact) if "payment_id" not in payments_fact.columns else payments_fact.copy()
     aggregations = build_aggregations(fact)
     resolved_insights = insights if insights is not None else build_management_narratives(fact, limit=5)
-    detail_row_details = _build_detail_row_details()
-    detail_rows = _build_detail_rows(fact, detail_row_details=detail_row_details)
 
     payload = {
         "metadata": _build_metadata(fact),
@@ -68,10 +46,12 @@ def build_dashboard_payload(
         "status_breakdown": _build_status_breakdown(aggregations["agg_status"]),
         "vendors": _build_entity_aggregate(aggregations["agg_vendors"], "vendor_name"),
         "organizations": _build_entity_aggregate(aggregations["agg_orgs"], "organization_name"),
+        "departments": _build_entity_aggregate(aggregations["agg_department"], "department_name"),
+        "category_yoy": _build_category_yoy(fact),
         "insights": resolved_insights,
-        "detail_rows": detail_rows,
-        "detail_row_index": _build_detail_row_index(detail_rows),
-        "detail_row_details": detail_row_details,
+        "detail_rows": [],
+        "detail_row_index": {},
+        "detail_row_details": {},
     }
     validate_dashboard_payload(payload)
     return payload
@@ -83,7 +63,7 @@ def save_dashboard_payload(
     output_path: Path | None = None,
     insights: list[dict[str, object]] | None = None,
 ) -> Path:
-    """Build and persist the dashboard payload as JSON."""
+    """Build and persist the dashboard summary payload as JSON."""
     base_dir = Path(__file__).resolve().parents[3]
     target = output_path or (base_dir / "data" / "export" / "dashboard_payload.json")
     payload = build_dashboard_payload(payments_fact, insights=insights)
@@ -98,7 +78,6 @@ def validate_dashboard_payload(payload: dict[str, Any]) -> DashboardPayload:
 
 
 def _build_metadata(fact: pd.DataFrame) -> dict[str, Any]:
-    """Build dashboard metadata."""
     years = sorted(int(year) for year in fact["year"].dropna().astype(int).unique().tolist())
     return {
         "title": "Дашборд расходов IT-департамента",
@@ -110,7 +89,6 @@ def _build_metadata(fact: pd.DataFrame) -> dict[str, Any]:
 
 
 def _build_filters(fact: pd.DataFrame) -> dict[str, Any]:
-    """Build filter descriptors for the frontend."""
     return {
         "years": _filter_options(sorted(fact["year"].dropna().astype(int).unique().tolist())),
         "months": [
@@ -131,7 +109,6 @@ def _build_filters(fact: pd.DataFrame) -> dict[str, Any]:
 
 
 def _build_kpis(fact: pd.DataFrame) -> list[dict[str, Any]]:
-    """Build headline KPI cards."""
     total_amount = float(fact["amount"].sum())
     paid_amount = float(fact.loc[fact["status_group"] == "paid", "amount"].sum())
     unpaid_amount = float(fact.loc[fact["status_group"].isin(["approved_not_paid", "in_approval"]), "amount"].sum())
@@ -148,7 +125,6 @@ def _build_kpis(fact: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def _build_categories_tree(fact: pd.DataFrame) -> list[dict[str, Any]]:
-    """Build an L1/L2/L3 category tree with pre-aggregated metrics."""
     tree: list[dict[str, Any]] = []
     grouped_l1 = _aggregate_rows(fact, ["l1_category"])
     for _, l1_row in grouped_l1.iterrows():
@@ -194,7 +170,6 @@ def _build_categories_tree(fact: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def _build_status_breakdown(agg_status: pd.DataFrame) -> list[dict[str, Any]]:
-    """Build UI-friendly status aggregates with Russian labels."""
     rows: list[dict[str, Any]] = []
     for _, row in agg_status.iterrows():
         status_id = str(row["status_group"])
@@ -210,7 +185,6 @@ def _build_status_breakdown(agg_status: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def _build_entity_aggregate(aggregation: pd.DataFrame, column: str) -> list[dict[str, Any]]:
-    """Build vendor/organization aggregates with id-friendly fields."""
     rows: list[dict[str, Any]] = []
     for _, row in aggregation.iterrows():
         label = str(row[column])
@@ -225,109 +199,38 @@ def _build_entity_aggregate(aggregation: pd.DataFrame, column: str) -> list[dict
     return rows
 
 
-def _build_detail_rows(
-    fact: pd.DataFrame,
-    *,
-    detail_row_details: dict[str, dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Build normalized detail rows for frontend-only drill-downs."""
+def _build_category_yoy(fact: pd.DataFrame) -> list[dict[str, Any]]:
+    years = sorted(int(year) for year in fact["year"].dropna().astype(int).unique().tolist())
+    if len(years) < 2:
+        return []
+    left_year, right_year = years[0], years[-1]
+    grouped = (
+        fact[fact["year"].isin([left_year, right_year])]
+        .groupby(["l1_category", "year"], as_index=False)
+        .agg(total_amount=("amount", "sum"))
+    )
+    pivot = grouped.pivot(index="l1_category", columns="year", values="total_amount").fillna(0.0).reset_index()
     rows: list[dict[str, Any]] = []
-    for row_number, (_, row) in enumerate(fact.iterrows()):
-        detail_row_id = f"row_{row_number}"
+    for _, row in pivot.iterrows():
+        previous_amount = float(row.get(left_year, 0.0))
+        current_amount = float(row.get(right_year, 0.0))
+        delta_amount = current_amount - previous_amount
         rows.append(
             {
-                "detail_row_id": detail_row_id,
-                "payment_id": str(row["payment_id"]),
-                "period_date": _format_date(row["period_date"]),
-                "year": _nullable_int(row["year"]),
-                "month": _nullable_int(row["month"]),
-                "quarter": _nullable_int(row["quarter"]),
-                "amount": float(row["amount"]),
-                "status_group": str(row["status_group"]),
-                "article_name": str(row["article_name"]),
-                "article_code": str(row["article_code"]),
-                "contract_name": str(row.get("contract_name", "")),
-                "expense_subject": _build_expense_subject(row),
-                "vendor_id": _slugify(str(row["vendor_name"])),
-                "vendor_label": str(row["vendor_name"]),
-                "organization_id": _slugify(str(row["organization_name"])),
-                "organization_label": str(row["organization_name"]),
-                "project_name": str(row["project_name"]),
-                "department_name": str(row["department_name"]),
-                "l1_category_id": _slugify(str(row["l1_category"])),
-                "l1_category_label": str(row["l1_category"]),
-                "l2_category_id": _slugify(str(row["l2_category"])),
-                "l2_category_label": str(row["l2_category"]),
-                "l3_category_id": _slugify(str(row["l3_category"])),
-                "l3_category_label": str(row["l3_category"]),
-                "classification_confidence": str(row["classification_confidence"]),
-                "matched_rule_id": str(row.get("matched_rule_id", "")),
-                "matched_keywords": str(row.get("matched_keywords", "")),
-                "matched_vendor_pattern": str(row.get("matched_vendor_pattern", "")),
-                "matched_article_pattern": str(row.get("matched_article_pattern", "")),
-                "classification_reason_human": str(row.get("classification_reason_human", "")),
-                "has_transformations": bool(detail_row_details.get(detail_row_id, {}).get("transformations")),
+                "id": _slugify(str(row["l1_category"])),
+                "label": str(row["l1_category"]),
+                "left_year": left_year,
+                "right_year": right_year,
+                "previous_amount": previous_amount,
+                "current_amount": current_amount,
+                "delta_amount": delta_amount,
+                "delta_share": (delta_amount / previous_amount) if previous_amount else 1.0,
             }
         )
-    return rows
-
-
-def _build_detail_row_index(detail_rows: list[dict[str, Any]]) -> dict[str, list[str]]:
-    """Build pre-indexed slices for frontend drill-down by click target."""
-    index: dict[str, list[str]] = {}
-    for row in detail_rows:
-        detail_row_id = str(row["detail_row_id"])
-        keys = {
-            f"year:{row['year']}",
-            f"month:{row['month']}",
-            f"status:{row['status_group']}",
-            f"organization:{row['organization_id']}",
-            f"vendor:{row['vendor_id']}",
-            f"l1:{row['l1_category_id']}",
-            f"l2:{row['l2_category_id']}",
-            f"l3:{row['l3_category_id']}",
-        }
-        for key in keys:
-            index.setdefault(key, []).append(detail_row_id)
-    return index
-
-
-def _build_detail_row_details() -> dict[str, dict[str, Any]]:
-    """Build a row-level audit trail from interim artifacts."""
-    base_dir = Path(__file__).resolve().parents[3]
-    interim_dir = base_dir / "data" / "interim"
-    ingested_path = interim_dir / "payments_ingested.parquet"
-    classified_path = interim_dir / "payments_classified.parquet"
-    cleaned_path = interim_dir / "payments_clean.parquet"
-
-    if not ingested_path.exists():
-        return {}
-
-    raw = pd.read_parquet(ingested_path)
-    if classified_path.exists():
-        post = pd.read_parquet(classified_path)
-    elif cleaned_path.exists():
-        post = pd.read_parquet(cleaned_path)
-    else:
-        return {}
-
-    details: dict[str, dict[str, Any]] = {}
-    record_count = min(len(raw), len(post))
-    for row_number in range(record_count):
-        detail_row_id = f"row_{row_number}"
-        raw_row = raw.iloc[row_number]
-        post_row = post.iloc[row_number]
-        details[detail_row_id] = {
-            "detail_row_id": detail_row_id,
-            "raw_attributes": _serialize_raw_attributes(raw_row),
-            "pipeline_attributes": _serialize_pipeline_attributes(post_row),
-            "transformations": _build_transformation_log(raw_row, post_row),
-        }
-    return details
+    return sorted(rows, key=lambda item: abs(float(item["delta_amount"])), reverse=True)
 
 
 def _aggregate_rows(fact: pd.DataFrame, dimensions: list[str]) -> pd.DataFrame:
-    """Aggregate a fact table by selected dimensions."""
     return (
         fact.groupby(dimensions, dropna=False, as_index=False)
         .agg(total_amount=("amount", "sum"), payments_count=("payment_id", "nunique"))
@@ -337,155 +240,12 @@ def _aggregate_rows(fact: pd.DataFrame, dimensions: list[str]) -> pd.DataFrame:
 
 
 def _filter_options(values: list[object]) -> list[dict[str, str]]:
-    """Build id/label pairs for filter controls."""
     return [{"id": _slugify(str(value)), "label": str(value)} for value in values if str(value)]
 
 
 def _slugify(value: str) -> str:
-    """Convert raw values into stable frontend ids."""
     raw_value = value.strip().lower()
     transliterated = raw_value.translate(CYRILLIC_TO_LATIN)
     normalized_ascii = unicodedata.normalize("NFKD", transliterated).encode("ascii", "ignore").decode("ascii")
     normalized = re.sub(r"[^0-9a-zA-Z]+", "_", normalized_ascii).strip("_")
-    if normalized:
-        return normalized
-    unicode_fallback = "_".join(f"{ord(char):x}" for char in raw_value if not char.isspace())
-    return f"u_{unicode_fallback}" if unicode_fallback else "unknown"
-
-
-def _format_date(value: object) -> str:
-    """Format date-like values for payload serialization."""
-    if pd.isna(value):
-        return ""
-    return pd.to_datetime(value).date().isoformat()
-
-
-def _nullable_int(value: object) -> int | None:
-    """Convert nullable numeric values to Python integers."""
-    if pd.isna(value):
-        return None
-    return int(value)
-
-
-def _build_expense_subject(row: pd.Series) -> str:
-    """Build a more business-friendly subject label for detail rows."""
-    contract_name = str(row.get("contract_name", "") or "").strip()
-    article_name = str(row.get("article_name", "") or "").strip()
-    if contract_name and article_name and contract_name.lower() != article_name.lower():
-        return f"{contract_name} / {article_name}"
-    return contract_name or article_name
-
-
-def _serialize_raw_attributes(row: pd.Series) -> dict[str, str]:
-    """Serialize non-empty original row attributes for the audit modal."""
-    attributes: dict[str, str] = {}
-    for column, value in row.items():
-        serialized = _serialize_value(value)
-        if serialized:
-            attributes[str(column)] = serialized
-    return attributes
-
-
-def _serialize_pipeline_attributes(row: pd.Series) -> dict[str, str]:
-    """Serialize important post-pipeline attributes for the audit modal."""
-    fields = [
-        "business_status",
-        "year",
-        "month",
-        "quarter",
-        "year_month",
-        "l1_category",
-        "l2_category",
-        "l3_category",
-        "classification_confidence",
-        "classification_confidence_score",
-        "matched_rule_id",
-        "matched_keywords",
-        "matched_vendor_pattern",
-        "matched_article_pattern",
-        "classification_reason_human",
-    ]
-    output: dict[str, str] = {}
-    for field in fields:
-        if field in row.index:
-            serialized = _serialize_value(row[field])
-            if serialized:
-                output[field] = serialized
-    return output
-
-
-def _build_transformation_log(raw_row: pd.Series, post_row: pd.Series) -> list[dict[str, str]]:
-    """Build a row-level list of cleaning and normalization changes."""
-    changes: list[dict[str, str]] = []
-
-    for field in AMOUNT_FIELDS:
-        _append_change(changes, raw_row, post_row, field, "amount_numeric_parse", "Парсинг числовой суммы")
-    for field in DATE_FIELDS:
-        _append_change(changes, raw_row, post_row, field, "date_normalization", "Нормализация даты")
-    for field in TEXT_FIELDS:
-        _append_change(changes, raw_row, post_row, field, "text_cleanup", "Нормализация текстового поля")
-    for field in ENTITY_FIELDS:
-        _append_change(changes, raw_row, post_row, field, "entity_normalization", "Нормализация справочника сущностей")
-
-    raw_status = _serialize_value(raw_row.get("registrator_status_name"))
-    mapped_status = _serialize_value(post_row.get("business_status"))
-    if mapped_status and raw_status != mapped_status:
-        changes.append(
-            {
-                "rule_id": "status_mapping",
-                "rule_label": "Маппинг статуса в бизнес-статус",
-                "field": "business_status",
-                "before": raw_status,
-                "after": mapped_status,
-            }
-        )
-
-    for field in ("year", "month", "quarter", "year_month"):
-        derived_value = _serialize_value(post_row.get(field))
-        if derived_value:
-            changes.append(
-                {
-                    "rule_id": "date_derived_fields",
-                    "rule_label": "Расчет производных полей отчетного периода",
-                    "field": field,
-                    "before": "",
-                    "after": derived_value,
-                }
-            )
-
-    return changes
-
-
-def _append_change(
-    changes: list[dict[str, str]],
-    raw_row: pd.Series,
-    post_row: pd.Series,
-    field: str,
-    rule_id: str,
-    rule_label: str,
-) -> None:
-    """Append a before/after change record when a field value was transformed."""
-    if field not in raw_row.index or field not in post_row.index:
-        return
-    before = _serialize_value(raw_row[field])
-    after = _serialize_value(post_row[field])
-    if before == after:
-        return
-    changes.append(
-        {
-            "rule_id": rule_id,
-            "rule_label": rule_label,
-            "field": field,
-            "before": before,
-            "after": after,
-        }
-    )
-
-
-def _serialize_value(value: object) -> str:
-    """Convert scalar values into UI-friendly strings."""
-    if value is None or pd.isna(value):
-        return ""
-    if isinstance(value, pd.Timestamp):
-        return value.isoformat()
-    return str(value)
+    return normalized or "unknown"

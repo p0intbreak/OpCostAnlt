@@ -11,6 +11,7 @@
     {% block body %}{% endblock %}
     <script>
       window.dashboardPayload = {{ dashboard_payload | tojson }};
+      window.dashboardApiBaseUrl = {{ dashboard_api_base_url | tojson }};
     </script>
     <script>{{ inline_js | safe }}</script>
   </body>

@@ -283,6 +283,30 @@ body {
 .chart-tall { min-height: 320px; }
 .chart-compact { min-height: 190px; }
 
+.vendor-drilldown-state {
+  margin-bottom: 8px;
+}
+
+.vendor-drilldown-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.vendor-drilldown-panel {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.vendor-drilldown-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
 .breadcrumb-bar,
 .active-filters,
 .pagination-bar {
@@ -576,6 +600,20 @@ button.secondary {
   padding: 8px 10px;
 }
 
+.source-line-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.source-line-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
 .attr-key {
   font-size: 10px;
   color: var(--muted);
@@ -593,7 +631,8 @@ button.secondary {
   .story-grid,
   .kpi-grid,
   .insights-grid,
-  .filter-grid {
+  .filter-grid,
+  .vendor-drilldown-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -618,7 +657,8 @@ button.secondary {
   .kpi-grid,
   .insights-grid,
   .filter-grid,
-  .table-toolbar {
+  .table-toolbar,
+  .vendor-drilldown-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -49,13 +49,25 @@ make install
 make run-pipeline
 ```
 
-5. Build the HTML dashboard:
+5. Build the compact dashboard shell:
 
 ```bash
 make build-dashboard
 ```
 
-6. Run tests:
+6. Run the backend:
+
+```bash
+make serve-dashboard
+```
+
+7. Open the dashboard in the browser:
+
+```text
+http://127.0.0.1:8000
+```
+
+8. Run tests:
 
 ```bash
 make test
@@ -70,7 +82,7 @@ This repository is scaffolded with placeholder modules, scripts, and tests. The 
 - spend classification
 - analytical marts and KPIs
 - insight generation
-- Jinja2-based HTML dashboard rendering
+- Jinja2-based HTML shell + FastAPI backend serving layer
 
 ## Definition of Done
 
