@@ -30,6 +30,7 @@ def run_modeling_pipeline(
     for name, aggregation in aggregations.items():
         aggregation.to_parquet(target_dir / f"{name}.parquet", index=False)
 
-    payments_fact.attrs["dimensions"] = dimensions
-    payments_fact.attrs["aggregations"] = aggregations
+    payments_fact.attrs["dimension_tables"] = sorted(dimensions)
+    payments_fact.attrs["aggregation_tables"] = sorted(aggregations)
+    payments_fact.attrs["processed_output_dir"] = str(target_dir)
     return payments_fact

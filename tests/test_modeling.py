@@ -180,8 +180,21 @@ def test_run_modeling_pipeline_persists_processed_parquet_files(tmp_path: Path) 
     for filename in expected_files:
         assert (tmp_path / filename).exists()
 
-    assert "dimensions" in fact.attrs
-    assert "aggregations" in fact.attrs
+    assert fact.attrs["dimension_tables"] == [
+        "dim_articles",
+        "dim_orgs",
+        "dim_projects",
+        "dim_vendors",
+    ]
+    assert fact.attrs["aggregation_tables"] == [
+        "agg_categories",
+        "agg_department",
+        "agg_kpi_year_month",
+        "agg_orgs",
+        "agg_status",
+        "agg_vendors",
+        "agg_year_compare_2025_2026",
+    ]
 
 
 def test_dimension_builders_create_unique_members() -> None:

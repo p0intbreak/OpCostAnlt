@@ -30,7 +30,7 @@ def run_classification_pipeline(
     validate_classification_rules(rules, taxonomy)
 
     classified, review_queue = classify_payments(dataframe, rules)
-    classified.attrs["review_queue"] = review_queue
     save_review_queue(classified, review_path)
-    classified.attrs["review_queue_path"] = review_path
+    classified.attrs["review_queue_path"] = str(review_path)
+    classified.attrs["review_queue_rows"] = int(len(review_queue))
     return classified

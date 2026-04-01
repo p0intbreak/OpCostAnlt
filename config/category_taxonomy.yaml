@@ -16,6 +16,8 @@ taxonomy:
         - load_balancing
         - cdn
         - certificate_services
+        - network_infrastructure
+        - server_infrastructure
   software_and_licenses:
     description: "Application software, subscriptions, productivity tools, and software licensing."
     children:
@@ -24,10 +26,12 @@ taxonomy:
         - crm
         - document_management
         - hr_systems
+        - general_business_software
       engineering_tools:
         - developer_tools
         - devops_tools
         - design_tools
+        - general_software_tools
       productivity_and_collaboration:
         - office_suites
         - knowledge_management
@@ -46,6 +50,8 @@ taxonomy:
         - infrastructure_support
         - vendor_support
         - consulting
+        - it_outsourcing
+        - staff_augmentation
   workplace_equipment:
     description: "Employee-facing devices, peripherals, workplace setup, and hardware lifecycle costs."
     children:
@@ -54,11 +60,14 @@ taxonomy:
         - desktops
         - mobile_devices
         - tablets
+        - workstations
       workplace_accessories:
         - monitors
         - peripherals
         - conference_equipment
         - printers
+        - consumables
+        - managed_print_services
   information_security:
     description: "Cybersecurity software, services, controls, audit, and compliance-related spend."
     children:
@@ -85,6 +94,8 @@ taxonomy:
         - fixed_line
         - virtual_pbx
         - sms_and_notifications
+        - unified_communications
+        - communications_equipment
   other_it:
     description: "Residual IT spend that does not yet fit a governed category."
     children:
@@ -93,4 +104,3 @@ taxonomy:
         - misc_services
         - misc_software
         - misc_hardware
-

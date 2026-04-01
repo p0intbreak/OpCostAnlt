@@ -20,8 +20,274 @@ rules:
           - yandex cloud
           - vk cloud
     review_required_below: 0.8
-  - rule_id: "licenses_productivity"
+
+  - rule_id: "communications_internet_access_ru"
+    priority: 15
+    confidence: 0.97
+    target:
+      l1: communications
+      l2: connectivity
+      l3: internet_access
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - стационарные каналы связи и доступ в интернет
+          - доступ в интернет
+          - каналы связи
+    review_required_below: 0.8
+
+  - rule_id: "dev_support_it_outsourcing_ru"
     priority: 20
+    confidence: 0.95
+    target:
+      l1: development_and_support
+      l2: support_services
+      l3: it_outsourcing
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - аутсорсинг ит услуг
+          - аутсорсинг it услуг
+          - поддержка it-сервисов
+          - поддержка it сервисов
+    review_required_below: 0.8
+
+  - rule_id: "communications_mobile_ru"
+    priority: 25
+    confidence: 0.97
+    target:
+      l1: communications
+      l2: telephony_and_comms
+      l3: mobile_communications
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - корпоративная мобильная связь
+          - мобильная связь
+      - column: kontragenti_naimenovanie
+        match_type: contains_any
+        values:
+          - вымпелком
+          - мтс
+          - мегафон
+          - скартел
+          - t2 мобайл
+    review_required_below: 0.8
+
+  - rule_id: "software_general_ru"
+    priority: 30
+    confidence: 0.9
+    target:
+      l1: software_and_licenses
+      l2: business_software
+      l3: general_business_software
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - программное обеспечение
+          - обновления и подписки для ит оборудования
+      - column: kontragenti_naimenovanie
+        match_type: contains_any
+        values:
+          - контур
+          - системный софт
+          - 1с
+          - билдсофт
+          - майнд крафт
+    review_required_below: 0.78
+
+  - rule_id: "communications_unified_comms_ru"
+    priority: 35
+    confidence: 0.93
+    target:
+      l1: communications
+      l2: telephony_and_comms
+      l3: unified_communications
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - телефония и унифицированные коммуникации
+          - унифицированные коммуникации
+          - телефония
+    review_required_below: 0.8
+
+  - rule_id: "dev_support_staff_augmentation_ru"
+    priority: 40
+    confidence: 0.94
+    target:
+      l1: development_and_support
+      l2: support_services
+      l3: staff_augmentation
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - аутстаффинг управленческие расходы
+          - аутстаффинг
+    review_required_below: 0.8
+
+  - rule_id: "workplace_print_consumables_ru"
+    priority: 45
+    confidence: 0.95
+    target:
+      l1: workplace_equipment
+      l2: workplace_accessories
+      l3: consumables
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - картриджи и запасные части для мфу и принтеров
+          - расходные материалы
+          - картриджи
+          - запасные части для мфу
+    review_required_below: 0.8
+
+  - rule_id: "workplace_managed_print_ru"
+    priority: 50
+    confidence: 0.94
+    target:
+      l1: workplace_equipment
+      l2: workplace_accessories
+      l3: managed_print_services
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - аутсорс сервиса печати
+    review_required_below: 0.8
+
+  - rule_id: "infrastructure_dns_domains_ru"
+    priority: 55
+    confidence: 0.96
+    target:
+      l1: infrastructure
+      l2: network_and_core_services
+      l3: dns_and_domains
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - оплата хостингов и доменов
+          - хостингов и доменов
+          - доменов
+      - column: kontragenti_naimenovanie
+        match_type: contains_any
+        values:
+          - рсиц
+          - рег.ру
+          - masterhost
+    review_required_below: 0.8
+
+  - rule_id: "infrastructure_network_buildout_ru"
+    priority: 60
+    confidence: 0.93
+    target:
+      l1: infrastructure
+      l2: network_and_core_services
+      l3: network_infrastructure
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - кабельные сети и инженерная инфраструктура
+          - сетевое оборудование
+          - оборудование связи
+          - кабельные сети
+    review_required_below: 0.8
+
+  - rule_id: "workplace_printers_ru"
+    priority: 65
+    confidence: 0.93
+    target:
+      l1: workplace_equipment
+      l2: workplace_accessories
+      l3: printers
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - оборудование печати
+    review_required_below: 0.8
+
+  - rule_id: "workplace_workstations_ru"
+    priority: 70
+    confidence: 0.93
+    target:
+      l1: workplace_equipment
+      l2: end_user_devices
+      l3: workstations
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - компьютерное оборудование
+    review_required_below: 0.8
+
+  - rule_id: "infrastructure_servers_ru"
+    priority: 75
+    confidence: 0.94
+    target:
+      l1: infrastructure
+      l2: network_and_core_services
+      l3: server_infrastructure
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - серверное оборудование
+    review_required_below: 0.8
+
+  - rule_id: "workplace_conference_equipment_ru"
+    priority: 80
+    confidence: 0.92
+    target:
+      l1: workplace_equipment
+      l2: workplace_accessories
+      l3: conference_equipment
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - мультимедиа оборудование
+    review_required_below: 0.8
+
+  - rule_id: "dev_support_application_support_ru"
+    priority: 85
+    confidence: 0.9
+    target:
+      l1: development_and_support
+      l2: support_services
+      l3: application_support
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - поддержка it-сервисов
+          - поддержка it сервисов
+    review_required_below: 0.8
+
+  - rule_id: "workplace_misc_consumables_ru"
+    priority: 90
+    confidence: 0.85
+    target:
+      l1: workplace_equipment
+      l2: workplace_accessories
+      l3: consumables
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - прочие ит расходные материалы
+    review_required_below: 0.8
+
+  - rule_id: "licenses_productivity"
+    priority: 100
     confidence: 0.9
     target:
       l1: software_and_licenses
@@ -40,8 +306,9 @@ rules:
           - license
           - subscription
     review_required_below: 0.8
+
   - rule_id: "dev_support_outsource"
-    priority: 30
+    priority: 110
     confidence: 0.85
     target:
       l1: development_and_support
@@ -61,8 +328,9 @@ rules:
           - crm
           - integration
     review_required_below: 0.75
+
   - rule_id: "workplace_laptops"
-    priority: 40
+    priority: 120
     confidence: 0.88
     target:
       l1: workplace_equipment
@@ -80,8 +348,9 @@ rules:
           - it
           - support
     review_required_below: 0.8
+
   - rule_id: "security_endpoint"
-    priority: 50
+    priority: 130
     confidence: 0.92
     target:
       l1: information_security
@@ -100,8 +369,9 @@ rules:
           - kaspersky
           - positive technologies
     review_required_below: 0.85
+
   - rule_id: "communications_mobile"
-    priority: 60
+    priority: 140
     confidence: 0.9
     target:
       l1: communications
@@ -121,6 +391,7 @@ rules:
           - megafon
           - beeline
     review_required_below: 0.8
+
   - rule_id: "fallback_other_it"
     priority: 999
     confidence: 0.3
@@ -134,4 +405,3 @@ rules:
         values:
           - "*"
     review_required_below: 0.99
-
