@@ -1,0 +1,137 @@
+rules:
+  - rule_id: "infra_cloud_hosting"
+    priority: 10
+    confidence: 0.95
+    target:
+      l1: infrastructure
+      l2: cloud_and_hosting
+      l3: managed_hosting
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - hosting
+          - cloud
+          - infrastructure
+      - column: kontragenti_naimenovanie
+        match_type: contains_any
+        values:
+          - selectel
+          - yandex cloud
+          - vk cloud
+    review_required_below: 0.8
+  - rule_id: "licenses_productivity"
+    priority: 20
+    confidence: 0.9
+    target:
+      l1: software_and_licenses
+      l2: productivity_and_collaboration
+      l3: office_suites
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - microsoft 365
+          - office
+          - workspace
+      - column: dogovori_kontragentov_naimenovanie
+        match_type: contains_any
+        values:
+          - license
+          - subscription
+    review_required_below: 0.8
+  - rule_id: "dev_support_outsource"
+    priority: 30
+    confidence: 0.85
+    target:
+      l1: development_and_support
+      l2: implementation_and_delivery
+      l3: custom_development
+    conditions:
+      - column: naznachenie_platezha
+        match_type: contains_any
+        values:
+          - development
+          - implementation
+          - support
+      - column: proekti_naimenovanie
+        match_type: contains_any
+        values:
+          - erp
+          - crm
+          - integration
+    review_required_below: 0.75
+  - rule_id: "workplace_laptops"
+    priority: 40
+    confidence: 0.88
+    target:
+      l1: workplace_equipment
+      l2: end_user_devices
+      l3: laptops
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - laptop
+          - notebook
+      - column: podrazdeleniya_naimenovanie
+        match_type: contains_any
+        values:
+          - it
+          - support
+    review_required_below: 0.8
+  - rule_id: "security_endpoint"
+    priority: 50
+    confidence: 0.92
+    target:
+      l1: information_security
+      l2: security_software
+      l3: endpoint_protection
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - antivirus
+          - endpoint
+          - edr
+      - column: kontragenti_naimenovanie
+        match_type: contains_any
+        values:
+          - kaspersky
+          - positive technologies
+    review_required_below: 0.85
+  - rule_id: "communications_mobile"
+    priority: 60
+    confidence: 0.9
+    target:
+      l1: communications
+      l2: telephony_and_comms
+      l3: mobile_communications
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: contains_any
+        values:
+          - mobile
+          - telecom
+          - telephony
+      - column: kontragenti_naimenovanie
+        match_type: contains_any
+        values:
+          - mts
+          - megafon
+          - beeline
+    review_required_below: 0.8
+  - rule_id: "fallback_other_it"
+    priority: 999
+    confidence: 0.3
+    target:
+      l1: other_it
+      l2: unclassified
+      l3: review_required
+    conditions:
+      - column: bit_stati_oborotov_naimenovanie
+        match_type: in_list
+        values:
+          - "*"
+    review_required_below: 0.99
+

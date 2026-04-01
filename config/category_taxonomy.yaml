@@ -1,0 +1,96 @@
+taxonomy:
+  infrastructure:
+    description: "Core infrastructure, hosting, cloud, data platforms, and runtime services."
+    children:
+      cloud_and_hosting:
+        - iaas
+        - paas
+        - managed_hosting
+        - backup_and_storage
+      data_platforms:
+        - databases
+        - data_warehouse
+        - observability
+      network_and_core_services:
+        - dns_and_domains
+        - load_balancing
+        - cdn
+        - certificate_services
+  software_and_licenses:
+    description: "Application software, subscriptions, productivity tools, and software licensing."
+    children:
+      business_software:
+        - erp_and_finance
+        - crm
+        - document_management
+        - hr_systems
+      engineering_tools:
+        - developer_tools
+        - devops_tools
+        - design_tools
+      productivity_and_collaboration:
+        - office_suites
+        - knowledge_management
+        - meeting_tools
+        - messaging_tools
+  development_and_support:
+    description: "External development work, support contracts, implementation, and managed services."
+    children:
+      implementation_and_delivery:
+        - custom_development
+        - integrations
+        - qa_and_testing
+        - migration_projects
+      support_services:
+        - application_support
+        - infrastructure_support
+        - vendor_support
+        - consulting
+  workplace_equipment:
+    description: "Employee-facing devices, peripherals, workplace setup, and hardware lifecycle costs."
+    children:
+      end_user_devices:
+        - laptops
+        - desktops
+        - mobile_devices
+        - tablets
+      workplace_accessories:
+        - monitors
+        - peripherals
+        - conference_equipment
+        - printers
+  information_security:
+    description: "Cybersecurity software, services, controls, audit, and compliance-related spend."
+    children:
+      security_software:
+        - endpoint_protection
+        - siem_and_soc
+        - vulnerability_management
+        - identity_and_access
+      security_services:
+        - audit_and_compliance
+        - penetration_testing
+        - awareness_training
+        - incident_response
+  communications:
+    description: "Connectivity, telephony, communication channels, and related infrastructure."
+    children:
+      connectivity:
+        - internet_access
+        - data_channels
+        - vpn
+        - branch_connectivity
+      telephony_and_comms:
+        - mobile_communications
+        - fixed_line
+        - virtual_pbx
+        - sms_and_notifications
+  other_it:
+    description: "Residual IT spend that does not yet fit a governed category."
+    children:
+      unclassified:
+        - review_required
+        - misc_services
+        - misc_software
+        - misc_hardware
+
