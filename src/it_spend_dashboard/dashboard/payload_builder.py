@@ -32,7 +32,7 @@ def build_dashboard_payload(
     """Build a single frontend-oriented dashboard payload."""
     fact = build_payments_fact(payments_fact) if "payment_id" not in payments_fact.columns else payments_fact.copy()
     aggregations = build_aggregations(fact)
-    resolved_insights = insights or build_management_narratives(fact, limit=5)
+    resolved_insights = insights if insights is not None else build_management_narratives(fact, limit=5)
     detail_rows = _build_detail_rows(fact)
 
     payload = {

@@ -48,10 +48,7 @@ class RuleMatchResult:
 def classify_payments(dataframe: pd.DataFrame, ruleset: ClassificationRuleset) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Classify a payments DataFrame and return classified rows plus a review queue."""
     classified = dataframe.copy()
-    results = [
-        classify_record(_record_to_dict(record), ruleset)
-        for record in classified.to_dict(orient="records")
-    ]
+    results = [classify_record(_record_to_dict(record), ruleset) for record in classified.to_dict(orient="records")]
 
     classified["l1_category"] = [result.l1_category for result in results]
     classified["l2_category"] = [result.l2_category for result in results]
@@ -68,6 +65,8 @@ def classify_payments(dataframe: pd.DataFrame, ruleset: ClassificationRuleset) -
     classified["review_required"] = [result.review_required for result in results]
 
     review_queue = build_review_queue(classified)
+    if "reason" in review_queue.columns:
+        review_queue["review_reason"] = review_queue["reason"]
     return classified, review_queue
 
 
@@ -80,6 +79,9 @@ def classify_record(record: dict[str, str], ruleset: ClassificationRuleset) -> R
     keyword_candidates: list[tuple[ClassificationRule, float]] = []
 
     for rule in ordered_rules:
+        if _is_wildcard_fallback_rule(rule):
+            continue
+
         article_matched = match_article_rule(record, rule)
         vendor_matched = match_vendor_rule(record, rule)
         keyword_score = _rule_keyword_score(record, rule)
@@ -94,22 +96,35 @@ def classify_record(record: dict[str, str], ruleset: ClassificationRuleset) -> R
             keyword_candidates.append((rule, keyword_score))
 
     if article_matches:
-        return _build_match_result(record, article_matches[0], article_matched=True, vendor_matched=match_vendor_rule(record, article_matches[0]))
+        matched_rule = article_matches[0]
+        return _build_match_result(
+            record,
+            matched_rule,
+            article_matched=True,
+            vendor_matched=match_vendor_rule(record, matched_rule),
+        )
+
     if vendor_matches:
-        return _build_match_result(record, vendor_matches[0], article_matched=False, vendor_matched=True)
+        return _build_match_result(
+            record,
+            vendor_matches[0],
+            article_matched=False,
+            vendor_matched=True,
+        )
+
     if keyword_candidates:
-        rule, _ = sorted(
-            keyword_candidates,
-            key=lambda item: (-item[1], item[0].priority),
-        )[0]
+        rule, _ = sorted(keyword_candidates, key=lambda item: (-item[1], item[0].priority))[0]
         return _build_match_result(record, rule, article_matched=False, vendor_matched=False)
 
     return RuleMatchResult(
         l1_category="other_it",
         l2_category="unclassified",
         l3_category="review_required",
-        classification_reason="No article, vendor, or keyword rule matched.",
-        classification_reason_human="Категория не определена автоматически: ни правило по статье, ни правило по поставщику, ни ключевые слова не дали уверенного совпадения.",
+        classification_reason="No matching classification rule",
+        classification_reason_human=(
+            "Категория не определена автоматически: не найдено уверенного совпадения "
+            "по статье, поставщику, договору или ключевым словам."
+        ),
         classification_confidence="unclassified",
         classification_confidence_score=0.0,
         classification_rule_id=None,
@@ -182,7 +197,7 @@ def _build_reason(
     vendor_matched: bool,
     keyword_score: float,
 ) -> str:
-    """Build a human-readable classification reason."""
+    """Build a concise machine-oriented classification reason."""
     evidence: list[str] = []
     if article_matched:
         evidence.append("article")
@@ -204,7 +219,7 @@ def _build_human_reason(
     """Build a user-facing explanation for why the row was classified."""
     fragments: list[str] = [f"Применено правило {rule.rule_id}."]
     if article_pattern:
-        fragments.append(f"Совпала статья/код с шаблоном '{article_pattern}'.")
+        fragments.append(f"Совпала статья или код с шаблоном '{article_pattern}'.")
     if vendor_pattern:
         fragments.append(f"Совпал поставщик или договор с шаблоном '{vendor_pattern}'.")
     if keywords:
@@ -271,6 +286,17 @@ def _record_to_dict(record: dict[str, object]) -> dict[str, str]:
         value = record.get(column, "")
         projected[column] = "" if pd.isna(value) else str(value)
     return projected
+
+
+def _is_wildcard_fallback_rule(rule: ClassificationRule) -> bool:
+    """Return whether a rule is a pure wildcard fallback without real evidence."""
+    if not rule.conditions:
+        return False
+    for condition in rule.conditions:
+        normalized_values = {_normalize(value) for value in condition.values}
+        if normalized_values != {"*"}:
+            return False
+    return True
 
 
 def _normalize(value: str) -> str:

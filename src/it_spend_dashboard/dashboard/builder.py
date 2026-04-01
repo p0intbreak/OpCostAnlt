@@ -14,5 +14,41 @@ def build_dashboard(payments_fact: pd.DataFrame | None = None, output_path: Path
     base_dir = Path(__file__).resolve().parents[3]
     fact = payments_fact
     if fact is None:
-        fact = pd.read_parquet(base_dir / "data" / "processed" / "payments_fact.parquet")
+        default_fact_path = base_dir / "data" / "processed" / "payments_fact.parquet"
+        if default_fact_path.exists():
+            fact = pd.read_parquet(default_fact_path)
+        else:
+            fact = _empty_payments_fact()
     return build_dashboard_html(fact, output_path=output_path)
+
+
+def _empty_payments_fact() -> pd.DataFrame:
+    """Return an empty but schema-complete payments fact for smoke rendering."""
+    return pd.DataFrame(
+        columns=[
+            "payment_id",
+            "period_date",
+            "year",
+            "month",
+            "quarter",
+            "amount",
+            "status_raw",
+            "status_group",
+            "article_name",
+            "article_code",
+            "vendor_name",
+            "contract_name",
+            "project_name",
+            "department_name",
+            "organization_name",
+            "l1_category",
+            "l2_category",
+            "l3_category",
+            "classification_confidence",
+            "matched_rule_id",
+            "matched_keywords",
+            "matched_vendor_pattern",
+            "matched_article_pattern",
+            "classification_reason_human",
+        ]
+    )

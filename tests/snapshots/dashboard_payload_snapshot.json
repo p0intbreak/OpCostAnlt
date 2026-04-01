@@ -325,7 +325,12 @@
       "l2_category_label": "cloud_and_hosting",
       "l3_category_id": "managed_hosting",
       "l3_category_label": "managed_hosting",
-      "classification_confidence": "high"
+      "classification_confidence": "high",
+      "matched_rule_id": "",
+      "matched_keywords": "",
+      "matched_vendor_pattern": "",
+      "matched_article_pattern": "",
+      "classification_reason_human": ""
     },
     {
       "payment_id": "p2",
@@ -349,7 +354,12 @@
       "l2_category_label": "productivity_and_collaboration",
       "l3_category_id": "office_suites",
       "l3_category_label": "office_suites",
-      "classification_confidence": "medium"
+      "classification_confidence": "medium",
+      "matched_rule_id": "",
+      "matched_keywords": "",
+      "matched_vendor_pattern": "",
+      "matched_article_pattern": "",
+      "classification_reason_human": ""
     },
     {
       "payment_id": "p3",
@@ -373,7 +383,12 @@
       "l2_category_label": "unclassified",
       "l3_category_id": "review_required",
       "l3_category_label": "review_required",
-      "classification_confidence": "low"
+      "classification_confidence": "low",
+      "matched_rule_id": "",
+      "matched_keywords": "",
+      "matched_vendor_pattern": "",
+      "matched_article_pattern": "",
+      "classification_reason_human": ""
     }
   ],
   "detail_row_index": {

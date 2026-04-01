@@ -36,8 +36,13 @@ def load_status_rules(config_dir: Path | None = None) -> dict[str, list[str]]:
 
 def map_status(value: str, rules: dict[str, list[str]]) -> str:
     """Map a raw status value to a business status bucket."""
+    best_match: tuple[int, str] | None = None
     for business_status, patterns in rules.items():
-        if any(pattern in value for pattern in patterns):
-            return business_status
+        for pattern in patterns:
+            if pattern and pattern in value:
+                candidate = (len(pattern), business_status)
+                if best_match is None or candidate[0] > best_match[0]:
+                    best_match = candidate
+    if best_match is not None:
+        return best_match[1]
     return "other"
-
